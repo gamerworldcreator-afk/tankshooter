@@ -80,7 +80,8 @@ export class SpawnSystem implements System {
       }
       const transform = world.transforms.get(entity);
       const velocity = world.velocities.get(entity);
-      if (!transform || !velocity) {
+      const render = world.renders.get(entity);
+      if (!transform || !velocity || !render) {
         world.releaseToPool(entity);
         continue;
       }
@@ -93,6 +94,10 @@ export class SpawnSystem implements System {
       transform.scaleX = 1;
       transform.scaleY = 1;
       transform.scaleZ = 1;
+      if (command.scale) {
+        transform.scaleX = command.scale;
+        transform.scaleY = command.scale;
+      }
 
       velocity.vx = command.vx;
       velocity.vy = command.vy;
@@ -109,6 +114,9 @@ export class SpawnSystem implements System {
 
       if (command.role === 'obstacle') {
         this.configureObstacle(world, entity);
+      }
+      if (command.role === 'subParticle' && command.tint !== undefined && render.mesh instanceof THREE.Mesh) {
+        this.tintSubParticle(render.mesh, command.tint);
       }
     }
   }
@@ -181,6 +189,16 @@ export class SpawnSystem implements System {
     }
     if ('emissiveIntensity' in material && typeof material.emissiveIntensity === 'number') {
       (material as { emissiveIntensity: number }).emissiveIntensity = 0.75;
+    }
+  }
+
+  private tintSubParticle(mesh: THREE.Mesh, color: number): void {
+    const material = mesh.material;
+    if (!material || typeof material !== 'object') {
+      return;
+    }
+    if ('color' in material && material.color && typeof material.color === 'object' && 'setHex' in material.color) {
+      (material.color as { setHex(v: number): void }).setHex(color);
     }
   }
 }

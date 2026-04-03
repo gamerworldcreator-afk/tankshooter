@@ -98,9 +98,13 @@ export class PhysicsSystem implements System {
         continue;
       }
       if (fabricator > 0 && this.intersects(world, bullet, fabricator)) {
+        const bulletTransform = world.transforms.get(bullet);
         world.releaseToPool(bullet);
         world.applyDamage(fabricator, FABRICATOR_DAMAGE);
         world.addScore(2);
+        if (bulletTransform) {
+          this.emitImpactBurst(world, bulletTransform.x, bulletTransform.y, 0x95fff2, 8, 6.5);
+        }
       }
     }
 
@@ -111,9 +115,38 @@ export class PhysicsSystem implements System {
       world.releaseToPool(obstacle);
       world.applyDamage(tanker, TANKER_COLLISION_DAMAGE);
       world.feedbackQueue.push({ kind: 'hit', magnitude: 0.35, haptics: [30] });
+      const tankerTransform = world.transforms.get(tanker);
+      if (tankerTransform) {
+        this.emitImpactBurst(world, tankerTransform.x, tankerTransform.y, 0xffb38c, 11, 7.5);
+      }
       if ((world.health.get(tanker)?.current ?? 1) <= 0) {
         gameStore.getState().setHud({ isGameOver: true, endState: 'defeat' });
       }
+    }
+  }
+
+  private emitImpactBurst(
+    world: World,
+    x: number,
+    y: number,
+    tint: number,
+    count: number,
+    velocityScale: number
+  ): void {
+    for (let i = 0; i < count; i += 1) {
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.32;
+      const speed = velocityScale * (0.65 + Math.random() * 0.9);
+      world.queueSpawn({
+        key: 'subParticle',
+        role: 'subParticle',
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        ttlMs: 180 + Math.random() * 180,
+        scale: 0.9 + Math.random() * 0.8,
+        tint
+      });
     }
   }
 

@@ -86,6 +86,18 @@ function createBackdrop(scene: THREE.Scene): void {
   const key = new THREE.DirectionalLight(0x8ef0ff, 0.82);
   key.position.set(0, 1, 1);
   scene.add(ambient, key);
+
+  const railGeometry = new THREE.PlaneGeometry(0.18, 20);
+  const leftRail = new THREE.Mesh(
+    railGeometry,
+    new THREE.MeshBasicMaterial({ color: 0x8ce8ff, transparent: true, opacity: 0.38 })
+  );
+  leftRail.position.set(-8.22, 0, -0.2);
+  leftRail.layers.enable(BLOOM_LAYER);
+
+  const rightRail = leftRail.clone();
+  rightRail.position.x = 8.22;
+  scene.add(leftRail, rightRail);
 }
 
 function buildEntities(world: World, scene: THREE.Scene): void {
@@ -674,51 +686,24 @@ function createTouchControls(app: HTMLElement): {
 function createHudOverlay(app: HTMLElement): void {
   const hudRoot = document.createElement('div');
   hudRoot.style.position = 'absolute';
-  hudRoot.style.left = '8px';
-  hudRoot.style.right = 'auto';
-  hudRoot.style.top = 'calc(env(safe-area-inset-top, 0px) + 10px)';
-  hudRoot.style.width = 'min(44vw, 230px)';
+  hudRoot.style.left = '50%';
+  hudRoot.style.transform = 'translateX(-50%)';
+  hudRoot.style.top = 'calc(env(safe-area-inset-top, 0px) + 8px)';
+  hudRoot.style.width = 'min(92vw, 460px)';
   hudRoot.style.pointerEvents = 'none';
   hudRoot.style.zIndex = '12';
   app.appendChild(hudRoot);
 
   const hud = document.createElement('div');
-  hud.style.borderRadius = '14px';
-  hud.style.border = '1px solid rgba(118, 216, 255, 0.6)';
-  hud.style.background = 'linear-gradient(150deg, rgba(8, 24, 35, 0.74), rgba(5, 14, 21, 0.64))';
-  hud.style.backdropFilter = 'blur(12px)';
-  hud.style.boxShadow = '0 12px 28px rgba(0, 0, 0, 0.36), inset 0 0 30px rgba(119, 220, 255, 0.08)';
-  hud.style.padding = '10px';
+  hud.style.borderRadius = '12px';
+  hud.style.border = '1px solid rgba(126, 220, 255, 0.52)';
+  hud.style.background = 'linear-gradient(155deg, rgba(7, 21, 30, 0.74), rgba(5, 14, 20, 0.56))';
+  hud.style.backdropFilter = 'blur(10px)';
+  hud.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.32)';
+  hud.style.padding = '8px 10px';
   hud.style.display = 'grid';
-  hud.style.gap = '8px';
+  hud.style.gap = '7px';
   hudRoot.appendChild(hud);
-
-  const topRow = document.createElement('div');
-  topRow.style.display = 'grid';
-  topRow.style.gridTemplateColumns = '1fr 1fr 1fr';
-  topRow.style.gap = '6px';
-  hud.appendChild(topRow);
-
-  const scoreChip = document.createElement('div');
-  const highChip = document.createElement('div');
-  const stageChip = document.createElement('div');
-  for (const chip of [scoreChip, highChip, stageChip]) {
-    chip.style.border = '1px solid rgba(130, 224, 255, 0.35)';
-    chip.style.borderRadius = '10px';
-    chip.style.background = 'rgba(14, 34, 48, 0.55)';
-    chip.style.padding = '6px 8px';
-    chip.style.color = '#d9f6ff';
-    chip.style.fontSize = '11px';
-    chip.style.letterSpacing = '0.07em';
-    chip.style.textTransform = 'uppercase';
-    chip.style.fontWeight = '700';
-  }
-  topRow.append(scoreChip, highChip, stageChip);
-
-  const barsRow = document.createElement('div');
-  barsRow.style.display = 'grid';
-  barsRow.style.gap = '6px';
-  hud.appendChild(barsRow);
 
   const createBar = (labelText: string, accent: string): { wrap: HTMLDivElement; fill: HTMLDivElement; value: HTMLSpanElement } => {
     const wrap = document.createElement('div');
@@ -755,18 +740,9 @@ function createHudOverlay(app: HTMLElement): void {
     return { wrap, fill, value };
   };
 
-  const tankerBar = createBar('Tanker', 'linear-gradient(90deg, #91f3ff, #4ab8ff)');
-  const bossBar = createBar('Boss', 'linear-gradient(90deg, #9afadf, #42cfaa)');
-  barsRow.append(tankerBar.wrap, bossBar.wrap);
-
-  const hint = document.createElement('div');
-  hint.style.color = 'rgba(214, 243, 255, 0.8)';
-  hint.style.fontSize = '10px';
-  hint.style.letterSpacing = '0.06em';
-  hint.style.textTransform = 'uppercase';
-  hint.style.textAlign = 'center';
-  hint.textContent = 'Left pad move • Right fire';
-  hud.appendChild(hint);
+  const tankerBar = createBar('Hero Power', 'linear-gradient(90deg, #85f4ff, #3ba6ff)');
+  const bossBar = createBar('Villian Power', 'linear-gradient(90deg, #9dffd8, #31c692)');
+  hud.append(tankerBar.wrap, bossBar.wrap);
 
   const gameOver = document.createElement('div');
   gameOver.style.position = 'absolute';
@@ -787,12 +763,9 @@ function createHudOverlay(app: HTMLElement): void {
   app.appendChild(gameOver);
 
   gameStore.subscribe((state) => {
-    scoreChip.textContent = `Score ${Math.floor(state.score)}`;
-    highChip.textContent = `High ${Math.floor(state.highScore)}`;
-    stageChip.textContent = `Stage ${state.bossStage}`;
     const tankerPct = Math.max(0, Math.min(100, state.tankerHp));
     tankerBar.fill.style.width = `${tankerPct}%`;
-    tankerBar.value.textContent = `${Math.ceil(state.tankerHp)} HP`;
+    tankerBar.value.textContent = `${Math.ceil(state.tankerHp)} / 100`;
     const bossPct = Math.max(0, Math.min(100, (state.bossHp / Math.max(1, state.bossMaxHp)) * 100));
     bossBar.fill.style.width = `${bossPct}%`;
     bossBar.value.textContent = `${Math.ceil(state.bossHp)} / ${Math.ceil(state.bossMaxHp)}`;

@@ -40,6 +40,8 @@ export interface SpawnCommand {
   vx: number;
   vy: number;
   ttlMs?: number;
+  scale?: number;
+  tint?: number;
 }
 
 export interface System {
@@ -81,8 +83,8 @@ export class World {
   };
 
   public readonly arena = {
-    minX: -8.6,
-    maxX: 8.6,
+    minX: -8.15,
+    maxX: 8.15,
     minY: -9.5,
     maxY: 9.5
   };
