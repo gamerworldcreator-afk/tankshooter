@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  base: mode === 'production' ? '/tankshooter/' : '/',
   build: {
     target: 'es2022',
     sourcemap: false,
@@ -14,4 +15,4 @@ export default defineConfig({
       }
     }
   }
-});
+}));
