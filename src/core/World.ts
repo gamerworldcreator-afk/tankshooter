@@ -65,6 +65,8 @@ export class World {
   public readonly pools = new Map<string, number[]>();
   public readonly hitboxes = new Map<number, { w: number; h: number }>();
   public readonly lifetimesMs = new Map<number, number>();
+  public readonly angularVelocity = new Map<number, number>();
+  public readonly obstacleSway = new Map<number, { amplitude: number; frequency: number; phase: number }>();
 
   public readonly spawnQueue: SpawnCommand[] = [];
   public readonly feedbackQueue: FeedbackEvent[] = [];
@@ -72,6 +74,9 @@ export class World {
 
   public readonly input = {
     targetX: 0,
+    moveAxisX: 0,
+    useAxisControl: false,
+    shootHeld: false,
     pulseRequested: false
   };
 
@@ -168,6 +173,8 @@ export class World {
     }
     poolable.active = false;
     this.lifetimesMs.delete(entity);
+    this.angularVelocity.delete(entity);
+    this.obstacleSway.delete(entity);
     const velocity = this.velocities.get(entity);
     if (velocity) {
       velocity.vx = 0;

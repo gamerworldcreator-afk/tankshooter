@@ -30,9 +30,14 @@ export class BossEvolutionSystem implements System {
 
   private updateShieldVisual(world: World, enabled: boolean): void {
     const render = world.renders.get(world.fabricatorEntity);
-    if (!render) {
+    if (!render || !(render.mesh instanceof THREE.Mesh)) {
       return;
     }
+    const boss = world.bosses.get(world.fabricatorEntity);
+    const stage = boss?.stage ?? 1;
+    const stageBoost = stage === 1 ? 0.55 : stage === 2 ? 0.9 : 1.25;
+    const time = world.timeMs * 0.001;
+
     const mat = render.mesh.material;
     if (!(mat instanceof THREE.ShaderMaterial)) {
       return;
@@ -41,6 +46,40 @@ export class BossEvolutionSystem implements System {
     const current = Number(mat.uniforms.uIntensity?.value ?? 0);
     mat.uniforms.uIntensity.value = THREE.MathUtils.lerp(current, target, 0.12);
     mat.uniforms.uTime.value = world.timeMs / 1000;
+
+    const haloOuter = render.mesh.getObjectByName('fabricatorHaloOuter');
+    const haloInner = render.mesh.getObjectByName('fabricatorHaloInner');
+    const orbA = render.mesh.getObjectByName('fabricatorOrbA');
+    const orbB = render.mesh.getObjectByName('fabricatorOrbB');
+    const coreLight = render.mesh.getObjectByName('fabricatorLight');
+
+    if (haloOuter instanceof THREE.Mesh) {
+      haloOuter.rotation.z += 0.01 * stageBoost;
+      haloOuter.rotation.x = Math.PI * (0.2 + Math.sin(time * 0.8) * 0.06);
+      const haloMat = haloOuter.material;
+      if (haloMat instanceof THREE.MeshBasicMaterial) {
+        haloMat.opacity = 0.28 + Math.sin(time * 2.1) * 0.08 + stageBoost * 0.16;
+      }
+    }
+    if (haloInner instanceof THREE.Mesh) {
+      haloInner.rotation.z -= 0.016 * stageBoost;
+      haloInner.rotation.y = Math.sin(time * 0.9) * 0.38;
+      const haloMat = haloInner.material;
+      if (haloMat instanceof THREE.MeshBasicMaterial) {
+        haloMat.opacity = 0.22 + Math.cos(time * 2.8) * 0.09 + stageBoost * 0.12;
+      }
+    }
+    if (orbA instanceof THREE.Mesh) {
+      orbA.position.x = Math.cos(time * 1.6) * 1.92;
+      orbA.position.y = Math.sin(time * 1.6) * 0.72;
+    }
+    if (orbB instanceof THREE.Mesh) {
+      orbB.position.x = Math.cos(time * 1.6 + Math.PI) * 1.92;
+      orbB.position.y = Math.sin(time * 1.6 + Math.PI) * 0.72;
+    }
+    if (coreLight instanceof THREE.PointLight) {
+      coreLight.intensity = 1.1 + stageBoost * 0.6 + Math.sin(time * 3.2) * 0.35;
+    }
   }
 
   private updateTrackingBeam(world: World, dt: number, boss: { beamFiring: boolean; beamTargetX: number }): void {

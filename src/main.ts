@@ -44,7 +44,7 @@ async function bootstrap(): Promise<void> {
 
   buildEntities(world, renderer.scene);
   registerSystems(world);
-  bindInput(world, renderer.rawRenderer.domElement, renderer.camera);
+  bindInput(world, renderer.rawRenderer.domElement, renderer.camera, app);
   sdkReportProgress(85);
 
   await sdkStart();
@@ -67,12 +67,23 @@ function createBackdrop(scene: THREE.Scene): void {
   stars.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
   const points = new THREE.Points(
     stars,
-    new THREE.PointsMaterial({ color: 0x4d96cc, size: 0.03, transparent: true, opacity: 0.75 })
+    new THREE.PointsMaterial({ color: 0x78e2ff, size: 0.035, transparent: true, opacity: 0.8 })
   );
   scene.add(points);
 
-  const ambient = new THREE.AmbientLight(0x6ba7ff, 0.35);
-  const key = new THREE.DirectionalLight(0x77d4ff, 0.75);
+  const haze = new THREE.Mesh(
+    new THREE.PlaneGeometry(34, 24),
+    new THREE.MeshBasicMaterial({
+      color: 0x113247,
+      transparent: true,
+      opacity: 0.28
+    })
+  );
+  haze.position.z = -6;
+  scene.add(haze);
+
+  const ambient = new THREE.AmbientLight(0x7ac8ff, 0.48);
+  const key = new THREE.DirectionalLight(0x8ef0ff, 0.82);
   key.position.set(0, 1, 1);
   scene.add(ambient, key);
 }
@@ -102,16 +113,32 @@ function buildEntities(world: World, scene: THREE.Scene): void {
     active: false,
     cooldownMs: 0
   });
-  const tankerMesh = new THREE.Mesh(
-    new THREE.ConeGeometry(0.68, 1.4, 8),
+  const tankerMesh = new THREE.Group();
+  const chassis = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.42, 1.45, 6, 14),
     new THREE.MeshStandardMaterial({
-      color: 0x57bcff,
-      emissive: 0x0f4b73,
-      roughness: 0.35,
-      metalness: 0.65
+      color: 0xc8f3ff,
+      emissive: 0x103a4d,
+      emissiveIntensity: 0.45,
+      roughness: 0.23,
+      metalness: 0.74
     })
   );
-  tankerMesh.rotation.z = Math.PI;
+  chassis.rotation.z = Math.PI / 2;
+  const wingLeft = new THREE.Mesh(
+    new THREE.BoxGeometry(0.14, 0.8, 0.2),
+    new THREE.MeshStandardMaterial({ color: 0x89dfff, emissive: 0x1f6a88, emissiveIntensity: 0.6 })
+  );
+  wingLeft.position.set(-0.33, 0.12, 0);
+  const wingRight = wingLeft.clone();
+  wingRight.position.x = 0.33;
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(0.17, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0x88f6ff, transparent: true, opacity: 0.92 })
+  );
+  core.position.set(0, 0.28, 0.16);
+  core.layers.enable(BLOOM_LAYER);
+  tankerMesh.add(chassis, wingLeft, wingRight, core);
   tankerMesh.layers.enable(BLOOM_LAYER);
   scene.add(tankerMesh);
   world.addComponent(tanker, { type: 'Render', mesh: tankerMesh, bloomLayer: BLOOM_LAYER });
@@ -170,6 +197,47 @@ function buildEntities(world: World, scene: THREE.Scene): void {
     `
   });
   const fabricatorMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(1.45, 2), shieldMaterial);
+  const haloOuter = new THREE.Mesh(
+    new THREE.TorusGeometry(2.05, 0.06, 14, 84),
+    new THREE.MeshBasicMaterial({
+      color: 0x8df7ff,
+      transparent: true,
+      opacity: 0.45
+    })
+  );
+  haloOuter.name = 'fabricatorHaloOuter';
+  haloOuter.rotation.x = Math.PI * 0.25;
+  haloOuter.layers.enable(BLOOM_LAYER);
+
+  const haloInner = new THREE.Mesh(
+    new THREE.TorusGeometry(1.6, 0.045, 12, 72),
+    new THREE.MeshBasicMaterial({
+      color: 0xb9ffe8,
+      transparent: true,
+      opacity: 0.42
+    })
+  );
+  haloInner.name = 'fabricatorHaloInner';
+  haloInner.rotation.x = Math.PI * -0.35;
+  haloInner.layers.enable(BLOOM_LAYER);
+
+  const crownOrbA = new THREE.Mesh(
+    new THREE.SphereGeometry(0.12, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0xa2f4ff, transparent: true, opacity: 0.85 })
+  );
+  crownOrbA.name = 'fabricatorOrbA';
+  crownOrbA.position.set(1.9, 0, 0);
+  crownOrbA.layers.enable(BLOOM_LAYER);
+
+  const crownOrbB = crownOrbA.clone();
+  crownOrbB.name = 'fabricatorOrbB';
+  crownOrbB.position.set(-1.9, 0, 0);
+
+  const coreLight = new THREE.PointLight(0x8cecff, 1.4, 8, 2);
+  coreLight.name = 'fabricatorLight';
+  coreLight.position.set(0, 0, 0.4);
+
+  fabricatorMesh.add(haloOuter, haloInner, crownOrbA, crownOrbB, coreLight);
   scene.add(fabricatorMesh);
   world.addComponent(fabricator, { type: 'Render', mesh: fabricatorMesh, bloomLayer: 0 });
   world.hitboxes.set(fabricator, { w: 2.2, h: 2.2 });
@@ -275,14 +343,28 @@ function createPooledEntities(world: World, scene: THREE.Scene): void {
     world.addComponent(e, { type: 'Velocity', vx: 0, vy: 0, vz: 0 });
     world.addComponent(e, { type: 'Health', current: 24, max: 24, regenRate: 0 });
     world.addComponent(e, { type: 'Poolable', poolKey: 'obstacle', active: false });
-    const mesh = new THREE.Mesh(
+    const geometryOptions = [
       new THREE.DodecahedronGeometry(0.42),
+      new THREE.OctahedronGeometry(0.47),
+      new THREE.IcosahedronGeometry(0.44),
+      new THREE.TetrahedronGeometry(0.5)
+    ];
+    const mesh = new THREE.Mesh(
+      geometryOptions[i % geometryOptions.length],
       new THREE.MeshStandardMaterial({
-        color: 0x758599,
-        roughness: 0.9,
-        metalness: 0.15
+        color: 0x8fb9d1,
+        emissive: 0x1a2d3d,
+        emissiveIntensity: 0.6,
+        roughness: 0.45,
+        metalness: 0.52
       })
     );
+    const coreGlow = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0x9bf5ff, transparent: true, opacity: 0.75 })
+    );
+    coreGlow.layers.enable(BLOOM_LAYER);
+    mesh.add(coreGlow);
     mesh.visible = false;
     scene.add(mesh);
     world.addComponent(e, { type: 'Render', mesh, bloomLayer: 0 });
@@ -366,8 +448,72 @@ function registerSystems(world: World): void {
 function bindInput(
   world: World,
   canvas: HTMLCanvasElement,
-  camera: THREE.OrthographicCamera
+  camera: THREE.OrthographicCamera,
+  app: HTMLElement
 ): void {
+  const controls = createTouchControls(app);
+  const isTouchDevice =
+    'ontouchstart' in window || (navigator.maxTouchPoints !== undefined && navigator.maxTouchPoints > 0);
+
+  if (isTouchDevice) {
+    world.input.useAxisControl = true;
+  } else {
+    controls.root.style.opacity = '0.55';
+    controls.root.style.transform = 'scale(0.85)';
+  }
+
+  controls.fireButton.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    world.input.shootHeld = true;
+  });
+  const releaseFire = (): void => {
+    world.input.shootHeld = false;
+  };
+  controls.fireButton.addEventListener('pointerup', releaseFire);
+  controls.fireButton.addEventListener('pointercancel', releaseFire);
+  controls.fireButton.addEventListener('pointerleave', releaseFire);
+
+  controls.pulseButton.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    world.input.pulseRequested = true;
+  });
+
+  let movePointerId: number | null = null;
+  let moveStartX = 0;
+  const maxTravel = 80;
+
+  const updateMoveAxis = (clientX: number): void => {
+    const delta = clientX - moveStartX;
+    const axis = Math.max(-1, Math.min(1, delta / maxTravel));
+    world.input.moveAxisX = axis;
+    controls.stick.style.transform = `translate(${axis * 28}px, 0px)`;
+  };
+
+  controls.movePad.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    controls.movePad.setPointerCapture(event.pointerId);
+    movePointerId = event.pointerId;
+    moveStartX = event.clientX;
+    world.input.useAxisControl = true;
+    updateMoveAxis(event.clientX);
+  });
+  controls.movePad.addEventListener('pointermove', (event) => {
+    if (movePointerId !== event.pointerId) {
+      return;
+    }
+    updateMoveAxis(event.clientX);
+  });
+  const releaseMove = (event: PointerEvent): void => {
+    if (movePointerId !== event.pointerId) {
+      return;
+    }
+    movePointerId = null;
+    world.input.moveAxisX = 0;
+    controls.stick.style.transform = 'translate(0px, 0px)';
+  };
+  controls.movePad.addEventListener('pointerup', releaseMove);
+  controls.movePad.addEventListener('pointercancel', releaseMove);
+
   const updateX = (event: PointerEvent): void => {
     const rect = canvas.getBoundingClientRect();
     const norm = (event.clientX - rect.left) / rect.width;
@@ -375,21 +521,142 @@ function bindInput(
     world.input.targetX = worldX;
   };
 
-  canvas.addEventListener('pointermove', updateX);
-  canvas.addEventListener('pointerdown', (event) => {
+  canvas.addEventListener('pointermove', (event) => {
+    if (world.input.useAxisControl) {
+      return;
+    }
     updateX(event);
-    if (event.button === 2) {
+  });
+  canvas.addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'mouse') {
+      world.input.useAxisControl = false;
+      updateX(event);
+    }
+    if (event.button === 0 && event.pointerType === 'mouse') {
+      world.input.shootHeld = true;
+    }
+    if (event.button === 2 || (event.pointerType === 'mouse' && event.shiftKey)) {
       world.input.pulseRequested = true;
+    }
+  });
+  canvas.addEventListener('pointerup', (event) => {
+    if (event.button === 0 && event.pointerType === 'mouse') {
+      world.input.shootHeld = false;
     }
   });
   canvas.addEventListener('contextmenu', (event) => event.preventDefault());
 
   window.addEventListener('keydown', (event) => {
+    if (event.code === 'ArrowLeft' || event.code === 'KeyA') {
+      world.input.useAxisControl = true;
+      world.input.moveAxisX = -1;
+    }
+    if (event.code === 'ArrowRight' || event.code === 'KeyD') {
+      world.input.useAxisControl = true;
+      world.input.moveAxisX = 1;
+    }
+    if (event.code === 'KeyJ' || event.code === 'Enter') {
+      world.input.shootHeld = true;
+      event.preventDefault();
+    }
     if (event.code === 'Space') {
       world.input.pulseRequested = true;
       event.preventDefault();
     }
   });
+  window.addEventListener('keyup', (event) => {
+    if (event.code === 'ArrowLeft' || event.code === 'KeyA' || event.code === 'ArrowRight' || event.code === 'KeyD') {
+      world.input.moveAxisX = 0;
+    }
+    if (event.code === 'KeyJ' || event.code === 'Enter') {
+      world.input.shootHeld = false;
+    }
+  });
+  window.addEventListener('blur', () => {
+    world.input.shootHeld = false;
+    world.input.moveAxisX = 0;
+  });
+}
+
+function createTouchControls(app: HTMLElement): {
+  root: HTMLDivElement;
+  movePad: HTMLDivElement;
+  stick: HTMLDivElement;
+  fireButton: HTMLButtonElement;
+  pulseButton: HTMLButtonElement;
+} {
+  const controlsRoot = document.createElement('div');
+  controlsRoot.style.position = 'absolute';
+  controlsRoot.style.left = '0';
+  controlsRoot.style.right = '0';
+  controlsRoot.style.bottom = '10px';
+  controlsRoot.style.display = 'flex';
+  controlsRoot.style.justifyContent = 'space-between';
+  controlsRoot.style.padding = '0 14px';
+  controlsRoot.style.pointerEvents = 'none';
+  app.appendChild(controlsRoot);
+
+  const movePad = document.createElement('div');
+  movePad.style.width = '120px';
+  movePad.style.height = '120px';
+  movePad.style.borderRadius = '999px';
+  movePad.style.border = '1px solid rgba(128, 224, 255, 0.65)';
+  movePad.style.background = 'rgba(8, 26, 36, 0.42)';
+  movePad.style.backdropFilter = 'blur(10px)';
+  movePad.style.pointerEvents = 'auto';
+  movePad.style.display = 'grid';
+  movePad.style.placeItems = 'center';
+  controlsRoot.appendChild(movePad);
+
+  const stick = document.createElement('div');
+  stick.style.width = '44px';
+  stick.style.height = '44px';
+  stick.style.borderRadius = '999px';
+  stick.style.border = '1px solid rgba(184, 242, 255, 0.95)';
+  stick.style.background = 'rgba(143, 235, 255, 0.2)';
+  stick.style.transition = 'transform 90ms ease-out';
+  movePad.appendChild(stick);
+
+  const actionColumn = document.createElement('div');
+  actionColumn.style.display = 'flex';
+  actionColumn.style.gap = '10px';
+  actionColumn.style.pointerEvents = 'none';
+  controlsRoot.appendChild(actionColumn);
+
+  const fireButton = document.createElement('button');
+  fireButton.textContent = 'FIRE';
+  fireButton.style.width = '94px';
+  fireButton.style.height = '94px';
+  fireButton.style.borderRadius = '999px';
+  fireButton.style.border = '1px solid rgba(255, 188, 130, 0.85)';
+  fireButton.style.color = '#fff0e2';
+  fireButton.style.fontWeight = '700';
+  fireButton.style.letterSpacing = '0.08em';
+  fireButton.style.background =
+    'radial-gradient(circle at 35% 30%, rgba(255, 206, 156, 0.5), rgba(118, 52, 23, 0.45) 70%)';
+  fireButton.style.backdropFilter = 'blur(10px)';
+  fireButton.style.pointerEvents = 'auto';
+  fireButton.style.touchAction = 'none';
+  actionColumn.appendChild(fireButton);
+
+  const pulseButton = document.createElement('button');
+  pulseButton.textContent = 'PULSE';
+  pulseButton.style.width = '74px';
+  pulseButton.style.height = '74px';
+  pulseButton.style.borderRadius = '999px';
+  pulseButton.style.border = '1px solid rgba(122, 224, 255, 0.85)';
+  pulseButton.style.color = '#dff7ff';
+  pulseButton.style.fontWeight = '700';
+  pulseButton.style.fontSize = '11px';
+  pulseButton.style.letterSpacing = '0.08em';
+  pulseButton.style.background =
+    'radial-gradient(circle at 35% 30%, rgba(166, 239, 255, 0.45), rgba(29, 79, 107, 0.5) 70%)';
+  pulseButton.style.backdropFilter = 'blur(10px)';
+  pulseButton.style.pointerEvents = 'auto';
+  pulseButton.style.touchAction = 'none';
+  actionColumn.appendChild(pulseButton);
+
+  return { root: controlsRoot, movePad, stick, fireButton, pulseButton };
 }
 
 function createHudOverlay(app: HTMLElement): void {
@@ -435,7 +702,8 @@ function createHudOverlay(app: HTMLElement): void {
     hud.textContent =
       `Score ${Math.floor(state.score)}  High ${Math.floor(state.highScore)}\n` +
       `Tanker ${Math.ceil(state.tankerHp)}  Boss ${Math.ceil(state.bossHp)} / ${Math.ceil(state.bossMaxHp)}\n` +
-      `Stage ${state.bossStage}  Pulse ${pulseReady}`;
+      `Stage ${state.bossStage}  Pulse ${pulseReady}\n` +
+      `Move Left Pad  Fire Right  Pulse Button`;
     gameOver.style.display = state.isGameOver ? 'block' : 'none';
   });
 }

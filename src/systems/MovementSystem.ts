@@ -19,9 +19,13 @@ export class MovementSystem implements System {
       return;
     }
 
-    const deltaX = world.input.targetX - transform.x;
-    const maxSpeed = 18;
-    velocity.vx = Math.max(-maxSpeed, Math.min(maxSpeed, deltaX * 8));
+    const maxSpeed = 16;
+    if (world.input.useAxisControl) {
+      velocity.vx = world.input.moveAxisX * maxSpeed;
+    } else {
+      const deltaX = world.input.targetX - transform.x;
+      velocity.vx = Math.max(-maxSpeed, Math.min(maxSpeed, deltaX * 8));
+    }
     velocity.vy = 0;
   }
 }

@@ -39,6 +39,14 @@ export class PhysicsSystem implements System {
       transform.x += velocity.vx * dt;
       transform.y += velocity.vy * dt;
       transform.z += velocity.vz * dt;
+      const spin = world.angularVelocity.get(entity);
+      if (spin) {
+        transform.rotZ += spin * dt;
+      }
+      const sway = world.obstacleSway.get(entity);
+      if (sway) {
+        transform.x += Math.sin(world.timeMs * 0.001 * sway.frequency + sway.phase) * sway.amplitude * dt;
+      }
 
       if (entity === world.tankerEntity) {
         transform.x = Math.max(world.arena.minX, Math.min(world.arena.maxX, transform.x));
