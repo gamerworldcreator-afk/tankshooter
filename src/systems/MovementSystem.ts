@@ -1,0 +1,27 @@
+import type { System, World } from '../core/World';
+
+export class MovementSystem implements System {
+  public readonly priority = 1;
+  public readonly name = 'MovementSystem';
+
+  public update(world: World): void {
+    if (world.tankerEntity < 0) {
+      return;
+    }
+    const tanker = world.tankerEntity;
+    if (!world.isEntityActive(tanker)) {
+      return;
+    }
+
+    const transform = world.transforms.get(tanker);
+    const velocity = world.velocities.get(tanker);
+    if (!transform || !velocity) {
+      return;
+    }
+
+    const deltaX = world.input.targetX - transform.x;
+    const maxSpeed = 18;
+    velocity.vx = Math.max(-maxSpeed, Math.min(maxSpeed, deltaX * 8));
+    velocity.vy = 0;
+  }
+}
