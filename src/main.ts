@@ -684,31 +684,29 @@ function createTouchControls(app: HTMLElement): {
 }
 
 function createHudOverlay(app: HTMLElement): void {
-  const hudRoot = document.createElement('div');
-  hudRoot.style.position = 'absolute';
-  hudRoot.style.left = '50%';
-  hudRoot.style.transform = 'translateX(-50%)';
-  hudRoot.style.top = 'calc(env(safe-area-inset-top, 0px) + 8px)';
-  hudRoot.style.width = 'min(92vw, 460px)';
-  hudRoot.style.pointerEvents = 'none';
-  hudRoot.style.zIndex = '12';
-  app.appendChild(hudRoot);
-
-  const hud = document.createElement('div');
-  hud.style.borderRadius = '12px';
-  hud.style.border = '1px solid rgba(126, 220, 255, 0.52)';
-  hud.style.background = 'linear-gradient(155deg, rgba(7, 21, 30, 0.74), rgba(5, 14, 20, 0.56))';
-  hud.style.backdropFilter = 'blur(10px)';
-  hud.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.32)';
-  hud.style.padding = '8px 10px';
-  hud.style.display = 'grid';
-  hud.style.gap = '7px';
-  hudRoot.appendChild(hud);
+  const root = document.createElement('div');
+  root.style.position = 'absolute';
+  root.style.left = '0';
+  root.style.right = '0';
+  root.style.top = 'calc(env(safe-area-inset-top, 0px) + 8px)';
+  root.style.padding = '0 8px';
+  root.style.display = 'flex';
+  root.style.justifyContent = 'space-between';
+  root.style.pointerEvents = 'none';
+  root.style.zIndex = '12';
+  app.appendChild(root);
 
   const createBar = (labelText: string, accent: string): { wrap: HTMLDivElement; fill: HTMLDivElement; value: HTMLSpanElement } => {
     const wrap = document.createElement('div');
     wrap.style.display = 'grid';
     wrap.style.gap = '3px';
+    wrap.style.width = 'min(38vw, 170px)';
+    wrap.style.borderRadius = '10px';
+    wrap.style.border = '1px solid rgba(126, 220, 255, 0.45)';
+    wrap.style.background = 'linear-gradient(155deg, rgba(7, 21, 30, 0.68), rgba(5, 14, 20, 0.5))';
+    wrap.style.backdropFilter = 'blur(8px)';
+    wrap.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.28)';
+    wrap.style.padding = '6px 8px';
 
     const label = document.createElement('div');
     label.style.display = 'flex';
@@ -740,9 +738,9 @@ function createHudOverlay(app: HTMLElement): void {
     return { wrap, fill, value };
   };
 
-  const tankerBar = createBar('Hero Power', 'linear-gradient(90deg, #85f4ff, #3ba6ff)');
-  const bossBar = createBar('Villian Power', 'linear-gradient(90deg, #9dffd8, #31c692)');
-  hud.append(tankerBar.wrap, bossBar.wrap);
+  const tankerBar = createBar('Hero', 'linear-gradient(90deg, #85f4ff, #3ba6ff)');
+  const bossBar = createBar('Villian', 'linear-gradient(90deg, #9dffd8, #31c692)');
+  root.append(tankerBar.wrap, bossBar.wrap);
 
   const gameOver = document.createElement('div');
   gameOver.style.position = 'absolute';
