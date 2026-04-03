@@ -22,6 +22,9 @@ import { HUDSystem } from './systems/HUDSystem';
 
 const BLOOM_LAYER = 1;
 
+type BackgroundPreset = 'nebula' | 'sunsetGrid' | 'deepVoid';
+type HeroAvatarPreset = 'vanguard' | 'spectre' | 'ember';
+
 async function bootstrap(): Promise<void> {
   await sdkInitialize();
   sdkReportProgress(8);
@@ -43,6 +46,7 @@ async function bootstrap(): Promise<void> {
   sdkReportProgress(42);
 
   buildEntities(world, renderer.scene);
+  createSettingsPage(app, renderer.scene);
   registerSystems(world);
   bindInput(world, renderer.rawRenderer.domElement, renderer.camera, app);
   sdkReportProgress(85);
@@ -69,6 +73,7 @@ function createBackdrop(scene: THREE.Scene): void {
     stars,
     new THREE.PointsMaterial({ color: 0x78e2ff, size: 0.035, transparent: true, opacity: 0.8 })
   );
+  points.name = 'bgStars';
   scene.add(points);
 
   const haze = new THREE.Mesh(
@@ -79,6 +84,7 @@ function createBackdrop(scene: THREE.Scene): void {
       opacity: 0.28
     })
   );
+  haze.name = 'bgHaze';
   haze.position.z = -6;
   scene.add(haze);
 
@@ -92,10 +98,12 @@ function createBackdrop(scene: THREE.Scene): void {
     railGeometry,
     new THREE.MeshBasicMaterial({ color: 0x8ce8ff, transparent: true, opacity: 0.38 })
   );
+  leftRail.name = 'leftRail';
   leftRail.position.set(-8.22, 0, -0.2);
   leftRail.layers.enable(BLOOM_LAYER);
 
   const rightRail = leftRail.clone();
+  rightRail.name = 'rightRail';
   rightRail.position.x = 8.22;
   scene.add(leftRail, rightRail);
 }
@@ -126,6 +134,7 @@ function buildEntities(world: World, scene: THREE.Scene): void {
     cooldownMs: 0
   });
   const tankerMesh = new THREE.Group();
+  tankerMesh.name = 'heroRoot';
   const chassis = new THREE.Mesh(
     new THREE.CapsuleGeometry(0.42, 1.45, 6, 14),
     new THREE.MeshStandardMaterial({
@@ -136,18 +145,22 @@ function buildEntities(world: World, scene: THREE.Scene): void {
       metalness: 0.74
     })
   );
+  chassis.name = 'heroChassis';
   chassis.rotation.z = Math.PI / 2;
   const wingLeft = new THREE.Mesh(
     new THREE.BoxGeometry(0.14, 0.8, 0.2),
     new THREE.MeshStandardMaterial({ color: 0x89dfff, emissive: 0x1f6a88, emissiveIntensity: 0.6 })
   );
+  wingLeft.name = 'heroWingLeft';
   wingLeft.position.set(-0.33, 0.12, 0);
   const wingRight = wingLeft.clone();
+  wingRight.name = 'heroWingRight';
   wingRight.position.x = 0.33;
   const core = new THREE.Mesh(
     new THREE.SphereGeometry(0.17, 12, 12),
     new THREE.MeshBasicMaterial({ color: 0x88f6ff, transparent: true, opacity: 0.92 })
   );
+  core.name = 'heroCore';
   core.position.set(0, 0.28, 0.16);
   core.layers.enable(BLOOM_LAYER);
   tankerMesh.add(chassis, wingLeft, wingRight, core);
@@ -681,6 +694,326 @@ function createTouchControls(app: HTMLElement): {
   actionColumn.appendChild(fireButton);
 
   return { root: controlsRoot, movePad, stick, fireButton, pulseButton };
+}
+
+function createSettingsPage(app: HTMLElement, scene: THREE.Scene): void {
+  let currentBackground: BackgroundPreset = 'nebula';
+  let currentAvatar: HeroAvatarPreset = 'vanguard';
+
+  applyBackgroundPreset(scene, currentBackground);
+  applyHeroAvatar(scene, currentAvatar);
+
+  const openButton = document.createElement('button');
+  openButton.textContent = 'Settings';
+  openButton.style.position = 'absolute';
+  openButton.style.right = '8px';
+  openButton.style.top = 'calc(env(safe-area-inset-top, 0px) + 8px)';
+  openButton.style.zIndex = '13';
+  openButton.style.border = '1px solid rgba(128, 231, 255, 0.75)';
+  openButton.style.borderRadius = '10px';
+  openButton.style.padding = '7px 10px';
+  openButton.style.color = '#dff8ff';
+  openButton.style.fontWeight = '700';
+  openButton.style.letterSpacing = '0.04em';
+  openButton.style.background = 'rgba(8, 27, 39, 0.68)';
+  openButton.style.backdropFilter = 'blur(8px)';
+  openButton.style.touchAction = 'none';
+  app.appendChild(openButton);
+
+  const overlay = document.createElement('div');
+  overlay.style.position = 'absolute';
+  overlay.style.inset = '0';
+  overlay.style.zIndex = '20';
+  overlay.style.display = 'none';
+  overlay.style.background = 'rgba(4, 10, 16, 0.72)';
+  overlay.style.backdropFilter = 'blur(10px)';
+  overlay.style.padding = '18px 12px 14px';
+  overlay.style.pointerEvents = 'auto';
+  app.appendChild(overlay);
+
+  const panel = document.createElement('div');
+  panel.style.maxWidth = '460px';
+  panel.style.margin = '0 auto';
+  panel.style.border = '1px solid rgba(124, 226, 255, 0.6)';
+  panel.style.borderRadius = '16px';
+  panel.style.padding = '14px';
+  panel.style.background = 'linear-gradient(160deg, rgba(8, 26, 38, 0.92), rgba(6, 16, 23, 0.88))';
+  panel.style.boxShadow = '0 18px 42px rgba(0, 0, 0, 0.45)';
+  panel.style.display = 'grid';
+  panel.style.gap = '12px';
+  overlay.appendChild(panel);
+
+  const title = document.createElement('div');
+  title.textContent = 'Game Settings';
+  title.style.color = '#e0f9ff';
+  title.style.fontSize = '19px';
+  title.style.fontWeight = '700';
+  title.style.letterSpacing = '0.04em';
+  panel.appendChild(title);
+
+  const subtitle = document.createElement('div');
+  subtitle.textContent = 'Choose battlefield background and hero avatar';
+  subtitle.style.color = 'rgba(198, 235, 247, 0.9)';
+  subtitle.style.fontSize = '12px';
+  subtitle.style.letterSpacing = '0.03em';
+  panel.appendChild(subtitle);
+
+  const sectionBg = document.createElement('div');
+  sectionBg.style.display = 'grid';
+  sectionBg.style.gap = '8px';
+  panel.appendChild(sectionBg);
+  const sectionBgTitle = document.createElement('div');
+  sectionBgTitle.textContent = 'Background';
+  sectionBgTitle.style.color = '#b8f2ff';
+  sectionBgTitle.style.fontWeight = '700';
+  sectionBgTitle.style.letterSpacing = '0.05em';
+  sectionBgTitle.style.fontSize = '12px';
+  sectionBg.appendChild(sectionBgTitle);
+  const bgGrid = document.createElement('div');
+  bgGrid.style.display = 'grid';
+  bgGrid.style.gridTemplateColumns = 'repeat(3, minmax(0, 1fr))';
+  bgGrid.style.gap = '8px';
+  sectionBg.appendChild(bgGrid);
+
+  const sectionAvatar = document.createElement('div');
+  sectionAvatar.style.display = 'grid';
+  sectionAvatar.style.gap = '8px';
+  panel.appendChild(sectionAvatar);
+  const sectionAvatarTitle = document.createElement('div');
+  sectionAvatarTitle.textContent = 'Hero Avatar';
+  sectionAvatarTitle.style.color = '#b8f2ff';
+  sectionAvatarTitle.style.fontWeight = '700';
+  sectionAvatarTitle.style.letterSpacing = '0.05em';
+  sectionAvatarTitle.style.fontSize = '12px';
+  sectionAvatar.appendChild(sectionAvatarTitle);
+  const avatarGrid = document.createElement('div');
+  avatarGrid.style.display = 'grid';
+  avatarGrid.style.gridTemplateColumns = 'repeat(3, minmax(0, 1fr))';
+  avatarGrid.style.gap = '8px';
+  sectionAvatar.appendChild(avatarGrid);
+
+  const footer = document.createElement('div');
+  footer.style.display = 'flex';
+  footer.style.justifyContent = 'flex-end';
+  panel.appendChild(footer);
+  const closeButton = document.createElement('button');
+  closeButton.textContent = 'Close';
+  closeButton.style.border = '1px solid rgba(136, 225, 255, 0.8)';
+  closeButton.style.borderRadius = '10px';
+  closeButton.style.padding = '8px 12px';
+  closeButton.style.background = 'rgba(17, 57, 78, 0.7)';
+  closeButton.style.color = '#e1f9ff';
+  closeButton.style.fontWeight = '700';
+  closeButton.style.letterSpacing = '0.04em';
+  footer.appendChild(closeButton);
+
+  const optionStyle = (button: HTMLButtonElement, active: boolean): void => {
+    button.style.border = active ? '1px solid rgba(157, 245, 255, 0.95)' : '1px solid rgba(103, 173, 196, 0.6)';
+    button.style.boxShadow = active
+      ? '0 0 0 1px rgba(173, 252, 255, 0.25), 0 8px 18px rgba(0, 0, 0, 0.35)'
+      : '0 6px 14px rgba(0, 0, 0, 0.25)';
+  };
+
+  const makeOption = (
+    label: string,
+    container: HTMLElement,
+    selected: () => boolean,
+    onSelect: () => void
+  ): HTMLButtonElement => {
+    const button = document.createElement('button');
+    button.textContent = label;
+    button.style.height = '52px';
+    button.style.borderRadius = '12px';
+    button.style.background = 'rgba(11, 35, 50, 0.74)';
+    button.style.color = '#def6ff';
+    button.style.fontWeight = '700';
+    button.style.fontSize = '12px';
+    button.style.letterSpacing = '0.04em';
+    optionStyle(button, selected());
+    button.addEventListener('click', () => {
+      onSelect();
+      refreshButtons();
+    });
+    container.appendChild(button);
+    return button;
+  };
+
+  const bgButtons = [
+    makeOption('Nebula', bgGrid, () => currentBackground === 'nebula', () => {
+      currentBackground = 'nebula';
+      applyBackgroundPreset(scene, currentBackground);
+    }),
+    makeOption('Sunset Grid', bgGrid, () => currentBackground === 'sunsetGrid', () => {
+      currentBackground = 'sunsetGrid';
+      applyBackgroundPreset(scene, currentBackground);
+    }),
+    makeOption('Deep Void', bgGrid, () => currentBackground === 'deepVoid', () => {
+      currentBackground = 'deepVoid';
+      applyBackgroundPreset(scene, currentBackground);
+    })
+  ];
+
+  const avatarButtons = [
+    makeOption('Vanguard', avatarGrid, () => currentAvatar === 'vanguard', () => {
+      currentAvatar = 'vanguard';
+      applyHeroAvatar(scene, currentAvatar);
+    }),
+    makeOption('Spectre', avatarGrid, () => currentAvatar === 'spectre', () => {
+      currentAvatar = 'spectre';
+      applyHeroAvatar(scene, currentAvatar);
+    }),
+    makeOption('Ember', avatarGrid, () => currentAvatar === 'ember', () => {
+      currentAvatar = 'ember';
+      applyHeroAvatar(scene, currentAvatar);
+    })
+  ];
+
+  const refreshButtons = (): void => {
+    for (const button of bgButtons) {
+      optionStyle(button, button.textContent === (currentBackground === 'sunsetGrid' ? 'Sunset Grid' : currentBackground === 'deepVoid' ? 'Deep Void' : 'Nebula'));
+    }
+    for (const button of avatarButtons) {
+      optionStyle(button, button.textContent === (currentAvatar === 'vanguard' ? 'Vanguard' : currentAvatar === 'spectre' ? 'Spectre' : 'Ember'));
+    }
+  };
+  refreshButtons();
+
+  openButton.addEventListener('click', () => {
+    overlay.style.display = 'block';
+    openButton.style.display = 'none';
+  });
+  closeButton.addEventListener('click', () => {
+    overlay.style.display = 'none';
+    openButton.style.display = 'block';
+  });
+}
+
+function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): void {
+  const stars = scene.getObjectByName('bgStars');
+  const haze = scene.getObjectByName('bgHaze');
+  const leftRail = scene.getObjectByName('leftRail');
+  const rightRail = scene.getObjectByName('rightRail');
+  const starMat = stars instanceof THREE.Points ? stars.material : null;
+  const hazeMat = haze instanceof THREE.Mesh ? haze.material : null;
+  const leftMat = leftRail instanceof THREE.Mesh ? leftRail.material : null;
+  const rightMat = rightRail instanceof THREE.Mesh ? rightRail.material : null;
+
+  if (!(starMat instanceof THREE.PointsMaterial) || !(hazeMat instanceof THREE.MeshBasicMaterial)) {
+    return;
+  }
+
+  if (preset === 'sunsetGrid') {
+    scene.background = new THREE.Color(0x120b14);
+    starMat.color.setHex(0xffb08a);
+    starMat.opacity = 0.7;
+    hazeMat.color.setHex(0x4f2035);
+    hazeMat.opacity = 0.3;
+    if (leftMat instanceof THREE.MeshBasicMaterial) {
+      leftMat.color.setHex(0xff9a75);
+      leftMat.opacity = 0.42;
+    }
+    if (rightMat instanceof THREE.MeshBasicMaterial) {
+      rightMat.color.setHex(0xff9a75);
+      rightMat.opacity = 0.42;
+    }
+    document.body.style.background =
+      'radial-gradient(circle at 15% 20%, #6b2d45 0%, rgba(107, 45, 69, 0) 46%), radial-gradient(circle at 84% 78%, #6b4d2c 0%, rgba(107, 77, 44, 0) 42%), linear-gradient(170deg, #10080f 0%, #040406 70%, #0f1218 100%)';
+    return;
+  }
+
+  if (preset === 'deepVoid') {
+    scene.background = new THREE.Color(0x02040a);
+    starMat.color.setHex(0x88b9ff);
+    starMat.opacity = 0.62;
+    hazeMat.color.setHex(0x0f1d42);
+    hazeMat.opacity = 0.18;
+    if (leftMat instanceof THREE.MeshBasicMaterial) {
+      leftMat.color.setHex(0x7fb3ff);
+      leftMat.opacity = 0.32;
+    }
+    if (rightMat instanceof THREE.MeshBasicMaterial) {
+      rightMat.color.setHex(0x7fb3ff);
+      rightMat.opacity = 0.32;
+    }
+    document.body.style.background =
+      'radial-gradient(circle at 20% 12%, #102247 0%, rgba(16, 34, 71, 0) 45%), radial-gradient(circle at 82% 88%, #19264f 0%, rgba(25, 38, 79, 0) 46%), linear-gradient(160deg, #02040a 0%, #040914 62%, #0b1524 100%)';
+    return;
+  }
+
+  scene.background = new THREE.Color(0x05080d);
+  starMat.color.setHex(0x78e2ff);
+  starMat.opacity = 0.8;
+  hazeMat.color.setHex(0x113247);
+  hazeMat.opacity = 0.28;
+  if (leftMat instanceof THREE.MeshBasicMaterial) {
+    leftMat.color.setHex(0x8ce8ff);
+    leftMat.opacity = 0.38;
+  }
+  if (rightMat instanceof THREE.MeshBasicMaterial) {
+    rightMat.color.setHex(0x8ce8ff);
+    rightMat.opacity = 0.38;
+  }
+  document.body.style.background =
+    'radial-gradient(circle at 15% 20%, #1f4a5d 0%, rgba(31, 74, 93, 0) 45%), radial-gradient(circle at 80% 85%, #53341f 0%, rgba(83, 52, 31, 0) 42%), linear-gradient(165deg, #04090d 0%, #020406 65%, #070f15 100%)';
+}
+
+function applyHeroAvatar(scene: THREE.Scene, preset: HeroAvatarPreset): void {
+  const chassis = scene.getObjectByName('heroChassis');
+  const wingLeft = scene.getObjectByName('heroWingLeft');
+  const wingRight = scene.getObjectByName('heroWingRight');
+  const core = scene.getObjectByName('heroCore');
+  if (!(chassis instanceof THREE.Mesh) || !(wingLeft instanceof THREE.Mesh) || !(wingRight instanceof THREE.Mesh) || !(core instanceof THREE.Mesh)) {
+    return;
+  }
+
+  const chassisMat = chassis.material;
+  const leftMat = wingLeft.material;
+  const rightMat = wingRight.material;
+  const coreMat = core.material;
+  if (
+    !(chassisMat instanceof THREE.MeshStandardMaterial) ||
+    !(leftMat instanceof THREE.MeshStandardMaterial) ||
+    !(rightMat instanceof THREE.MeshStandardMaterial) ||
+    !(coreMat instanceof THREE.MeshBasicMaterial)
+  ) {
+    return;
+  }
+
+  if (preset === 'spectre') {
+    chassisMat.color.setHex(0xc1d6ff);
+    chassisMat.emissive.setHex(0x1a2f62);
+    leftMat.color.setHex(0x89a7ff);
+    leftMat.emissive.setHex(0x2d3d8a);
+    rightMat.color.setHex(0x89a7ff);
+    rightMat.emissive.setHex(0x2d3d8a);
+    coreMat.color.setHex(0x9aa8ff);
+    wingLeft.scale.y = 1.08;
+    wingRight.scale.y = 1.08;
+    return;
+  }
+
+  if (preset === 'ember') {
+    chassisMat.color.setHex(0xffd9b1);
+    chassisMat.emissive.setHex(0x73391d);
+    leftMat.color.setHex(0xffb585);
+    leftMat.emissive.setHex(0x89411a);
+    rightMat.color.setHex(0xffb585);
+    rightMat.emissive.setHex(0x89411a);
+    coreMat.color.setHex(0xffd38b);
+    wingLeft.scale.y = 1.2;
+    wingRight.scale.y = 1.2;
+    return;
+  }
+
+  chassisMat.color.setHex(0xc8f3ff);
+  chassisMat.emissive.setHex(0x103a4d);
+  leftMat.color.setHex(0x89dfff);
+  leftMat.emissive.setHex(0x1f6a88);
+  rightMat.color.setHex(0x89dfff);
+  rightMat.emissive.setHex(0x1f6a88);
+  coreMat.color.setHex(0x88f6ff);
+  wingLeft.scale.y = 1;
+  wingRight.scale.y = 1;
 }
 
 function createHudOverlay(app: HTMLElement): void {
