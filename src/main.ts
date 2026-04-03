@@ -458,8 +458,7 @@ function bindInput(
   if (isTouchDevice) {
     world.input.useAxisControl = true;
   } else {
-    controls.root.style.opacity = '0.55';
-    controls.root.style.transform = 'scale(0.85)';
+    controls.root.style.display = 'none';
   }
 
   controls.fireButton.addEventListener('pointerdown', (event) => {
@@ -589,95 +588,184 @@ function createTouchControls(app: HTMLElement): {
   controlsRoot.style.position = 'absolute';
   controlsRoot.style.left = '0';
   controlsRoot.style.right = '0';
-  controlsRoot.style.bottom = '10px';
+  controlsRoot.style.bottom = 'calc(env(safe-area-inset-bottom, 0px) + 8px)';
   controlsRoot.style.display = 'flex';
   controlsRoot.style.justifyContent = 'space-between';
-  controlsRoot.style.padding = '0 14px';
+  controlsRoot.style.alignItems = 'flex-end';
+  controlsRoot.style.padding = '0 12px';
   controlsRoot.style.pointerEvents = 'none';
+  controlsRoot.style.zIndex = '12';
   app.appendChild(controlsRoot);
 
   const movePad = document.createElement('div');
-  movePad.style.width = '120px';
-  movePad.style.height = '120px';
+  movePad.style.width = '116px';
+  movePad.style.height = '116px';
   movePad.style.borderRadius = '999px';
-  movePad.style.border = '1px solid rgba(128, 224, 255, 0.65)';
-  movePad.style.background = 'rgba(8, 26, 36, 0.42)';
-  movePad.style.backdropFilter = 'blur(10px)';
+  movePad.style.border = '1px solid rgba(118, 231, 255, 0.8)';
+  movePad.style.background =
+    'radial-gradient(circle at 35% 35%, rgba(147, 246, 255, 0.2), rgba(8, 31, 45, 0.5) 68%)';
+  movePad.style.backdropFilter = 'blur(12px)';
+  movePad.style.boxShadow = '0 10px 26px rgba(0, 0, 0, 0.35), inset 0 0 24px rgba(112, 220, 255, 0.18)';
   movePad.style.pointerEvents = 'auto';
   movePad.style.display = 'grid';
   movePad.style.placeItems = 'center';
+  movePad.style.touchAction = 'none';
   controlsRoot.appendChild(movePad);
 
   const stick = document.createElement('div');
-  stick.style.width = '44px';
-  stick.style.height = '44px';
+  stick.style.width = '48px';
+  stick.style.height = '48px';
   stick.style.borderRadius = '999px';
-  stick.style.border = '1px solid rgba(184, 242, 255, 0.95)';
-  stick.style.background = 'rgba(143, 235, 255, 0.2)';
+  stick.style.border = '1px solid rgba(190, 248, 255, 0.96)';
+  stick.style.background =
+    'radial-gradient(circle at 35% 35%, rgba(212, 251, 255, 0.5), rgba(91, 198, 227, 0.18) 72%)';
+  stick.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.35)';
   stick.style.transition = 'transform 90ms ease-out';
   movePad.appendChild(stick);
 
   const actionColumn = document.createElement('div');
   actionColumn.style.display = 'flex';
+  actionColumn.style.flexDirection = 'column';
+  actionColumn.style.alignItems = 'flex-end';
   actionColumn.style.gap = '10px';
   actionColumn.style.pointerEvents = 'none';
   controlsRoot.appendChild(actionColumn);
 
-  const fireButton = document.createElement('button');
-  fireButton.textContent = 'FIRE';
-  fireButton.style.width = '94px';
-  fireButton.style.height = '94px';
-  fireButton.style.borderRadius = '999px';
-  fireButton.style.border = '1px solid rgba(255, 188, 130, 0.85)';
-  fireButton.style.color = '#fff0e2';
-  fireButton.style.fontWeight = '700';
-  fireButton.style.letterSpacing = '0.08em';
-  fireButton.style.background =
-    'radial-gradient(circle at 35% 30%, rgba(255, 206, 156, 0.5), rgba(118, 52, 23, 0.45) 70%)';
-  fireButton.style.backdropFilter = 'blur(10px)';
-  fireButton.style.pointerEvents = 'auto';
-  fireButton.style.touchAction = 'none';
-  actionColumn.appendChild(fireButton);
-
   const pulseButton = document.createElement('button');
   pulseButton.textContent = 'PULSE';
-  pulseButton.style.width = '74px';
-  pulseButton.style.height = '74px';
+  pulseButton.style.width = '76px';
+  pulseButton.style.height = '76px';
   pulseButton.style.borderRadius = '999px';
-  pulseButton.style.border = '1px solid rgba(122, 224, 255, 0.85)';
+  pulseButton.style.border = '1px solid rgba(132, 236, 255, 0.9)';
   pulseButton.style.color = '#dff7ff';
   pulseButton.style.fontWeight = '700';
-  pulseButton.style.fontSize = '11px';
+  pulseButton.style.fontSize = '12px';
   pulseButton.style.letterSpacing = '0.08em';
   pulseButton.style.background =
-    'radial-gradient(circle at 35% 30%, rgba(166, 239, 255, 0.45), rgba(29, 79, 107, 0.5) 70%)';
-  pulseButton.style.backdropFilter = 'blur(10px)';
+    'radial-gradient(circle at 35% 30%, rgba(170, 241, 255, 0.58), rgba(26, 86, 114, 0.55) 72%)';
+  pulseButton.style.backdropFilter = 'blur(12px)';
+  pulseButton.style.boxShadow = '0 10px 22px rgba(0, 0, 0, 0.35)';
   pulseButton.style.pointerEvents = 'auto';
   pulseButton.style.touchAction = 'none';
   actionColumn.appendChild(pulseButton);
+
+  const fireButton = document.createElement('button');
+  fireButton.textContent = 'FIRE';
+  fireButton.style.width = '100px';
+  fireButton.style.height = '100px';
+  fireButton.style.borderRadius = '999px';
+  fireButton.style.border = '1px solid rgba(255, 188, 130, 0.9)';
+  fireButton.style.color = '#fff0e2';
+  fireButton.style.fontWeight = '700';
+  fireButton.style.fontSize = '16px';
+  fireButton.style.letterSpacing = '0.09em';
+  fireButton.style.background =
+    'radial-gradient(circle at 34% 30%, rgba(255, 219, 174, 0.6), rgba(130, 57, 24, 0.58) 72%)';
+  fireButton.style.backdropFilter = 'blur(12px)';
+  fireButton.style.boxShadow = '0 10px 24px rgba(0, 0, 0, 0.35), inset 0 0 24px rgba(255, 190, 125, 0.15)';
+  fireButton.style.pointerEvents = 'auto';
+  fireButton.style.touchAction = 'none';
+  actionColumn.appendChild(fireButton);
 
   return { root: controlsRoot, movePad, stick, fireButton, pulseButton };
 }
 
 function createHudOverlay(app: HTMLElement): void {
+  const hudRoot = document.createElement('div');
+  hudRoot.style.position = 'absolute';
+  hudRoot.style.left = '0';
+  hudRoot.style.right = '0';
+  hudRoot.style.top = 'calc(env(safe-area-inset-top, 0px) + 8px)';
+  hudRoot.style.padding = '0 10px';
+  hudRoot.style.pointerEvents = 'none';
+  hudRoot.style.zIndex = '12';
+  app.appendChild(hudRoot);
+
   const hud = document.createElement('div');
-  hud.style.position = 'absolute';
-  hud.style.top = '16px';
-  hud.style.left = '16px';
-  hud.style.padding = '12px 14px';
   hud.style.borderRadius = '14px';
-  hud.style.border = '1px solid rgba(118, 200, 255, 0.55)';
-  hud.style.background = 'rgba(12, 22, 33, 0.55)';
+  hud.style.border = '1px solid rgba(118, 216, 255, 0.6)';
+  hud.style.background = 'linear-gradient(150deg, rgba(8, 24, 35, 0.74), rgba(5, 14, 21, 0.64))';
   hud.style.backdropFilter = 'blur(12px)';
-  hud.style.color = '#d2ecff';
-  hud.style.letterSpacing = '0.08em';
-  hud.style.textTransform = 'uppercase';
-  hud.style.fontWeight = '700';
-  hud.style.fontSize = '13px';
-  hud.style.whiteSpace = 'pre';
-  hud.style.pointerEvents = 'none';
-  hud.style.boxShadow = '0 0 0 1px rgba(135, 218, 255, 0.15), 0 8px 20px rgba(0, 0, 0, 0.35)';
-  app.appendChild(hud);
+  hud.style.boxShadow = '0 12px 28px rgba(0, 0, 0, 0.36), inset 0 0 30px rgba(119, 220, 255, 0.08)';
+  hud.style.padding = '10px';
+  hud.style.display = 'grid';
+  hud.style.gap = '8px';
+  hudRoot.appendChild(hud);
+
+  const topRow = document.createElement('div');
+  topRow.style.display = 'grid';
+  topRow.style.gridTemplateColumns = '1fr 1fr 1fr';
+  topRow.style.gap = '6px';
+  hud.appendChild(topRow);
+
+  const scoreChip = document.createElement('div');
+  const highChip = document.createElement('div');
+  const stageChip = document.createElement('div');
+  for (const chip of [scoreChip, highChip, stageChip]) {
+    chip.style.border = '1px solid rgba(130, 224, 255, 0.35)';
+    chip.style.borderRadius = '10px';
+    chip.style.background = 'rgba(14, 34, 48, 0.55)';
+    chip.style.padding = '6px 8px';
+    chip.style.color = '#d9f6ff';
+    chip.style.fontSize = '11px';
+    chip.style.letterSpacing = '0.07em';
+    chip.style.textTransform = 'uppercase';
+    chip.style.fontWeight = '700';
+  }
+  topRow.append(scoreChip, highChip, stageChip);
+
+  const barsRow = document.createElement('div');
+  barsRow.style.display = 'grid';
+  barsRow.style.gap = '6px';
+  hud.appendChild(barsRow);
+
+  const createBar = (labelText: string, accent: string): { wrap: HTMLDivElement; fill: HTMLDivElement; value: HTMLSpanElement } => {
+    const wrap = document.createElement('div');
+    wrap.style.display = 'grid';
+    wrap.style.gap = '3px';
+
+    const label = document.createElement('div');
+    label.style.display = 'flex';
+    label.style.justifyContent = 'space-between';
+    label.style.alignItems = 'center';
+    label.style.color = '#c9f0ff';
+    label.style.fontSize = '10px';
+    label.style.letterSpacing = '0.08em';
+    label.style.textTransform = 'uppercase';
+    label.style.fontWeight = '700';
+    const name = document.createElement('span');
+    name.textContent = labelText;
+    const value = document.createElement('span');
+    label.append(name, value);
+
+    const track = document.createElement('div');
+    track.style.height = '7px';
+    track.style.borderRadius = '999px';
+    track.style.background = 'rgba(106, 164, 190, 0.25)';
+    track.style.overflow = 'hidden';
+    const fill = document.createElement('div');
+    fill.style.height = '100%';
+    fill.style.width = '0%';
+    fill.style.background = accent;
+    fill.style.boxShadow = '0 0 10px rgba(124, 220, 255, 0.55)';
+    track.appendChild(fill);
+
+    wrap.append(label, track);
+    return { wrap, fill, value };
+  };
+
+  const tankerBar = createBar('Tanker', 'linear-gradient(90deg, #91f3ff, #4ab8ff)');
+  const bossBar = createBar('Boss', 'linear-gradient(90deg, #9afadf, #42cfaa)');
+  barsRow.append(tankerBar.wrap, bossBar.wrap);
+
+  const hint = document.createElement('div');
+  hint.style.color = 'rgba(214, 243, 255, 0.8)';
+  hint.style.fontSize = '10px';
+  hint.style.letterSpacing = '0.06em';
+  hint.style.textTransform = 'uppercase';
+  hint.style.textAlign = 'center';
+  hint.textContent = 'Left pad move • Right fire • Pulse above fire';
+  hud.appendChild(hint);
 
   const gameOver = document.createElement('div');
   gameOver.style.position = 'absolute';
@@ -699,11 +787,15 @@ function createHudOverlay(app: HTMLElement): void {
 
   gameStore.subscribe((state) => {
     const pulseReady = state.pulseCooldownMs <= 10 ? 'Ready' : `${Math.ceil(state.pulseCooldownMs / 1000)}s`;
-    hud.textContent =
-      `Score ${Math.floor(state.score)}  High ${Math.floor(state.highScore)}\n` +
-      `Tanker ${Math.ceil(state.tankerHp)}  Boss ${Math.ceil(state.bossHp)} / ${Math.ceil(state.bossMaxHp)}\n` +
-      `Stage ${state.bossStage}  Pulse ${pulseReady}\n` +
-      `Move Left Pad  Fire Right  Pulse Button`;
+    scoreChip.textContent = `Score ${Math.floor(state.score)}`;
+    highChip.textContent = `High ${Math.floor(state.highScore)}`;
+    stageChip.textContent = `S${state.bossStage} • ${pulseReady}`;
+    const tankerPct = Math.max(0, Math.min(100, state.tankerHp));
+    tankerBar.fill.style.width = `${tankerPct}%`;
+    tankerBar.value.textContent = `${Math.ceil(state.tankerHp)} HP`;
+    const bossPct = Math.max(0, Math.min(100, (state.bossHp / Math.max(1, state.bossMaxHp)) * 100));
+    bossBar.fill.style.width = `${bossPct}%`;
+    bossBar.value.textContent = `${Math.ceil(state.bossHp)} / ${Math.ceil(state.bossMaxHp)}`;
     gameOver.style.display = state.isGameOver ? 'block' : 'none';
   });
 }
