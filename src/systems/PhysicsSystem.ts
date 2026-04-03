@@ -3,6 +3,7 @@ import type { System, World } from '../core/World';
 
 const BULLET_DAMAGE = 22;
 const TANKER_COLLISION_DAMAGE = 14;
+const TANKER_LEAK_DAMAGE = 8;
 const FABRICATOR_DAMAGE = 9;
 
 export class PhysicsSystem implements System {
@@ -53,11 +54,19 @@ export class PhysicsSystem implements System {
       }
 
       const role = world.roles.get(entity);
-      if (
-        (role === 'bullet' && transform.y > world.arena.maxY + 2) ||
-        ((role === 'obstacle' || role === 'debris' || role === 'subParticle') &&
-          transform.y < world.arena.minY - 2)
-      ) {
+      if (role === 'bullet' && transform.y > world.arena.maxY + 2) {
+        world.releaseToPool(entity);
+        continue;
+      }
+
+      if ((role === 'obstacle' || role === 'debris' || role === 'subParticle') && transform.y < world.arena.minY - 2) {
+        if (role === 'obstacle') {
+          world.applyDamage(world.tankerEntity, TANKER_LEAK_DAMAGE);
+          world.feedbackQueue.push({ kind: 'hit', magnitude: 0.2, haptics: [18] });
+          if ((world.health.get(world.tankerEntity)?.current ?? 1) <= 0) {
+            gameStore.getState().setHud({ isGameOver: true, endState: 'defeat' });
+          }
+        }
         world.releaseToPool(entity);
       }
     }
@@ -103,7 +112,7 @@ export class PhysicsSystem implements System {
       world.applyDamage(tanker, TANKER_COLLISION_DAMAGE);
       world.feedbackQueue.push({ kind: 'hit', magnitude: 0.35, haptics: [30] });
       if ((world.health.get(tanker)?.current ?? 1) <= 0) {
-        gameStore.getState().setHud({ isGameOver: true });
+        gameStore.getState().setHud({ isGameOver: true, endState: 'defeat' });
       }
     }
   }

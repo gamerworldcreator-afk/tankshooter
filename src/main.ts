@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+﻿import * as THREE from 'three';
 import { GameLoop } from './core/GameLoop';
 import { Renderer } from './core/Renderer';
 import { World } from './core/World';
@@ -474,7 +474,7 @@ function bindInput(
 
   controls.pulseButton.addEventListener('pointerdown', (event) => {
     event.preventDefault();
-    world.input.pulseRequested = true;
+    world.input.pulseRequested = false;
   });
 
   let movePointerId: number | null = null;
@@ -535,7 +535,7 @@ function bindInput(
       world.input.shootHeld = true;
     }
     if (event.button === 2 || (event.pointerType === 'mouse' && event.shiftKey)) {
-      world.input.pulseRequested = true;
+      world.input.pulseRequested = false;
     }
   });
   canvas.addEventListener('pointerup', (event) => {
@@ -559,7 +559,7 @@ function bindInput(
       event.preventDefault();
     }
     if (event.code === 'Space') {
-      world.input.pulseRequested = true;
+      world.input.pulseRequested = false;
       event.preventDefault();
     }
   });
@@ -647,6 +647,7 @@ function createTouchControls(app: HTMLElement): {
   pulseButton.style.boxShadow = '0 10px 22px rgba(0, 0, 0, 0.35)';
   pulseButton.style.pointerEvents = 'auto';
   pulseButton.style.touchAction = 'none';
+  pulseButton.style.display = 'none';
   actionColumn.appendChild(pulseButton);
 
   const fireButton = document.createElement('button');
@@ -673,10 +674,10 @@ function createTouchControls(app: HTMLElement): {
 function createHudOverlay(app: HTMLElement): void {
   const hudRoot = document.createElement('div');
   hudRoot.style.position = 'absolute';
-  hudRoot.style.left = '0';
-  hudRoot.style.right = '0';
-  hudRoot.style.top = 'calc(env(safe-area-inset-top, 0px) + 8px)';
-  hudRoot.style.padding = '0 10px';
+  hudRoot.style.left = '8px';
+  hudRoot.style.right = 'auto';
+  hudRoot.style.top = 'calc(env(safe-area-inset-top, 0px) + 10px)';
+  hudRoot.style.width = 'min(44vw, 230px)';
   hudRoot.style.pointerEvents = 'none';
   hudRoot.style.zIndex = '12';
   app.appendChild(hudRoot);
@@ -764,7 +765,7 @@ function createHudOverlay(app: HTMLElement): void {
   hint.style.letterSpacing = '0.06em';
   hint.style.textTransform = 'uppercase';
   hint.style.textAlign = 'center';
-  hint.textContent = 'Left pad move • Right fire • Pulse above fire';
+  hint.textContent = 'Left pad move • Right fire';
   hud.appendChild(hint);
 
   const gameOver = document.createElement('div');
@@ -786,16 +787,24 @@ function createHudOverlay(app: HTMLElement): void {
   app.appendChild(gameOver);
 
   gameStore.subscribe((state) => {
-    const pulseReady = state.pulseCooldownMs <= 10 ? 'Ready' : `${Math.ceil(state.pulseCooldownMs / 1000)}s`;
     scoreChip.textContent = `Score ${Math.floor(state.score)}`;
     highChip.textContent = `High ${Math.floor(state.highScore)}`;
-    stageChip.textContent = `S${state.bossStage} • ${pulseReady}`;
+    stageChip.textContent = `Stage ${state.bossStage}`;
     const tankerPct = Math.max(0, Math.min(100, state.tankerHp));
     tankerBar.fill.style.width = `${tankerPct}%`;
     tankerBar.value.textContent = `${Math.ceil(state.tankerHp)} HP`;
     const bossPct = Math.max(0, Math.min(100, (state.bossHp / Math.max(1, state.bossMaxHp)) * 100));
     bossBar.fill.style.width = `${bossPct}%`;
     bossBar.value.textContent = `${Math.ceil(state.bossHp)} / ${Math.ceil(state.bossMaxHp)}`;
+    if (state.endState === 'victory') {
+      gameOver.textContent = 'Victory';
+      gameOver.style.border = '1px solid rgba(129, 255, 214, 0.72)';
+      gameOver.style.color = '#defff1';
+    } else {
+      gameOver.textContent = 'Session Over';
+      gameOver.style.border = '1px solid rgba(132, 230, 255, 0.6)';
+      gameOver.style.color = '#f4fbff';
+    }
     gameOver.style.display = state.isGameOver ? 'block' : 'none';
   });
 }
@@ -820,3 +829,5 @@ function watchSessionEnd(loop: GameLoop, world: World, previous: { highScore: nu
 }
 
 void bootstrap();
+
+

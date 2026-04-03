@@ -9,6 +9,7 @@ export interface HudState {
   tankerHp: number;
   pulseCooldownMs: number;
   isGameOver: boolean;
+  endState: 'none' | 'victory' | 'defeat';
   shakeDelta: { x: number; y: number };
 }
 
@@ -32,6 +33,7 @@ const INITIAL_STATE: HudState = {
   tankerHp: 100,
   pulseCooldownMs: 0,
   isGameOver: false,
+  endState: 'none',
   shakeDelta: { x: 0, y: 0 }
 };
 
