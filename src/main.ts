@@ -503,29 +503,47 @@ function bindInput(
   });
 
   let movePointerId: number | null = null;
-  let moveStartX = 0;
-  const maxTravel = 80;
+  const maxTravel = 34;
+  const deadZone = 0.09;
 
-  const updateMoveAxis = (clientX: number): void => {
-    const delta = clientX - moveStartX;
-    const axis = Math.max(-1, Math.min(1, delta / maxTravel));
-    world.input.moveAxisX = axis;
-    controls.stick.style.transform = `translate(${axis * 28}px, 0px)`;
+  const updateMoveAxis = (clientX: number, clientY: number): void => {
+    const rect = controls.movePad.getBoundingClientRect();
+    const centerX = rect.left + rect.width * 0.5;
+    const centerY = rect.top + rect.height * 0.5;
+    const rawDx = clientX - centerX;
+    const rawDy = clientY - centerY;
+    const distance = Math.hypot(rawDx, rawDy);
+    const limitedDist = Math.min(distance, maxTravel);
+    const nx = distance > 0.0001 ? rawDx / distance : 0;
+    const ny = distance > 0.0001 ? rawDy / distance : 0;
+    const stickX = nx * limitedDist;
+    const stickY = ny * limitedDist;
+
+    const normX = Math.max(-1, Math.min(1, stickX / maxTravel));
+    const absX = Math.abs(normX);
+    if (absX < deadZone) {
+      world.input.moveAxisX = 0;
+    } else {
+      const eased = (absX - deadZone) / (1 - deadZone);
+      world.input.moveAxisX = Math.sign(normX) * Math.pow(eased, 1.08);
+    }
+
+    controls.stick.style.transform = `translate(${stickX}px, ${stickY}px)`;
   };
 
   controls.movePad.addEventListener('pointerdown', (event) => {
     event.preventDefault();
     controls.movePad.setPointerCapture(event.pointerId);
     movePointerId = event.pointerId;
-    moveStartX = event.clientX;
     world.input.useAxisControl = true;
-    updateMoveAxis(event.clientX);
+    controls.stick.style.transition = 'none';
+    updateMoveAxis(event.clientX, event.clientY);
   });
   controls.movePad.addEventListener('pointermove', (event) => {
     if (movePointerId !== event.pointerId) {
       return;
     }
-    updateMoveAxis(event.clientX);
+    updateMoveAxis(event.clientX, event.clientY);
   });
   const releaseMove = (event: PointerEvent): void => {
     if (movePointerId !== event.pointerId) {
@@ -533,6 +551,7 @@ function bindInput(
     }
     movePointerId = null;
     world.input.moveAxisX = 0;
+    controls.stick.style.transition = 'transform 120ms cubic-bezier(0.2, 0.9, 0.2, 1)';
     controls.stick.style.transform = 'translate(0px, 0px)';
   };
   controls.movePad.addEventListener('pointerup', releaseMove);
