@@ -15,7 +15,7 @@ export class HUDSystem implements System {
       tankerHp: Math.max(0, tankerHealth?.current ?? 0),
       bossHp: Math.max(0, bossHealth?.current ?? 0),
       bossMaxHp: bossHealth?.max ?? 1,
-      bossStage: boss?.stage ?? 1,
+      bossStage: boss?.stage ?? world.currentStage,
       score: world.score
     });
   }

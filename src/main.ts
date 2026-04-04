@@ -38,7 +38,6 @@ async function bootstrap(): Promise<void> {
   const renderer = new Renderer(world, app);
   createBackdrop(renderer.scene);
   syncArenaBounds(world, renderer);
-  createHudOverlay(app);
   sdkReportProgress(26);
 
   const saved = await sdkLoadProgress();
@@ -47,8 +46,9 @@ async function bootstrap(): Promise<void> {
   sdkReportProgress(42);
 
   buildEntities(world, renderer.scene);
-  createSettingsPage(app, renderer.scene);
+  const settings = createSettingsPage(app, renderer.scene, false);
   syncArenaBounds(world, renderer);
+  createHudOverlay(app, world);
   registerSystems(world);
   bindInput(world, renderer.rawRenderer.domElement, renderer.camera, app);
   window.addEventListener('resize', () => syncArenaBounds(world, renderer));
@@ -59,7 +59,10 @@ async function bootstrap(): Promise<void> {
 
   const loop = new GameLoop(world, renderer);
   watchSessionEnd(loop, world, saved);
-  loop.start();
+  createIntroPage(app, world, settings.open, () => {
+    startStageCountdown(world);
+    loop.start();
+  });
 }
 
 function createBackdrop(scene: THREE.Scene): void {
@@ -96,14 +99,19 @@ function createBackdrop(scene: THREE.Scene): void {
   key.position.set(0, 1, 1);
   scene.add(ambient, key);
 
-  const railGeometry = new THREE.PlaneGeometry(0.18, 20);
+  const railGeometry = new THREE.PlaneGeometry(0.28, 20.5);
   const leftRail = new THREE.Mesh(
     railGeometry,
-    new THREE.MeshBasicMaterial({ color: 0x8ce8ff, transparent: true, opacity: 0.38 })
+    new THREE.MeshBasicMaterial({ color: 0x8ce8ff, transparent: true, opacity: 0.58 })
   );
   leftRail.name = 'leftRail';
   leftRail.position.set(-8.22, 0, -0.2);
   leftRail.layers.enable(BLOOM_LAYER);
+  leftRail.onBeforeRender = (_r, _s, _c, _g, material) => {
+    if (material instanceof THREE.MeshBasicMaterial) {
+      material.opacity = 0.42 + Math.sin(performance.now() * 0.004) * 0.18;
+    }
+  };
 
   const rightRail = leftRail.clone();
   rightRail.name = 'rightRail';
@@ -115,7 +123,7 @@ function syncArenaBounds(world: World, renderer: Renderer): void {
   const camera = renderer.camera;
   const xMargin = 0.75;
   const topMargin = 1.6;
-  const bottomMargin = 3.15;
+  const bottomMargin = 2.55;
   world.arena.minX = camera.left + xMargin;
   world.arena.maxX = camera.right - xMargin;
   world.arena.minY = camera.bottom + bottomMargin;
@@ -124,7 +132,7 @@ function syncArenaBounds(world: World, renderer: Renderer): void {
   const tanker = world.transforms.get(world.tankerEntity);
   if (tanker) {
     tanker.x = THREE.MathUtils.clamp(tanker.x, world.arena.minX, world.arena.maxX);
-    tanker.y = world.arena.minY + 2.35;
+    tanker.y = world.arena.minY + 1.45;
   }
   const pulseWave = world.getEntitiesByRole('pulseWave', false)[0];
   const pulseTransform = pulseWave ? world.transforms.get(pulseWave) : undefined;
@@ -154,7 +162,7 @@ function buildEntities(world: World, scene: THREE.Scene): void {
   world.addComponent(tanker, {
     type: 'Transform',
     x: 0,
-    y: world.arena.minY + 2.35,
+    y: world.arena.minY + 1.45,
     z: 0,
     rotX: 0,
     rotY: 0,
@@ -311,7 +319,7 @@ function buildEntities(world: World, scene: THREE.Scene): void {
   world.addComponent(pulseWave, {
     type: 'Transform',
     x: 0,
-    y: world.arena.minY + 2.35,
+    y: world.arena.minY + 1.45,
     z: 0.03,
     rotX: 0,
     rotY: 0,
@@ -805,7 +813,11 @@ function createTouchControls(app: HTMLElement): {
   return { root: controlsRoot, movePad, stick, fireButton, pulseButton };
 }
 
-function createSettingsPage(app: HTMLElement, scene: THREE.Scene): void {
+function createSettingsPage(
+  app: HTMLElement,
+  scene: THREE.Scene,
+  showFloatingButton: boolean
+): { open: () => void; close: () => void } {
   let currentBackground: BackgroundPreset = 'nebula';
   let currentAvatar: HeroAvatarPreset = 'vanguard';
 
@@ -831,7 +843,9 @@ function createSettingsPage(app: HTMLElement, scene: THREE.Scene): void {
   openButton.style.backdropFilter = 'blur(8px)';
   openButton.style.boxShadow = '0 6px 14px rgba(0, 0, 0, 0.35)';
   openButton.style.touchAction = 'none';
-  app.appendChild(openButton);
+  if (showFloatingButton) {
+    app.appendChild(openButton);
+  }
 
   const overlay = document.createElement('div');
   overlay.style.position = 'absolute';
@@ -991,14 +1005,21 @@ function createSettingsPage(app: HTMLElement, scene: THREE.Scene): void {
   };
   refreshButtons();
 
-  openButton.addEventListener('click', () => {
+  const open = (): void => {
     overlay.style.display = 'block';
-    openButton.style.display = 'none';
-  });
-  closeButton.addEventListener('click', () => {
+    if (showFloatingButton) {
+      openButton.style.display = 'none';
+    }
+  };
+  const close = (): void => {
     overlay.style.display = 'none';
-    openButton.style.display = 'block';
-  });
+    if (showFloatingButton) {
+      openButton.style.display = 'block';
+    }
+  };
+  openButton.addEventListener('click', open);
+  closeButton.addEventListener('click', close);
+  return { open, close };
 }
 
 function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): void {
@@ -1129,7 +1150,144 @@ function applyHeroAvatar(scene: THREE.Scene, preset: HeroAvatarPreset): void {
   wingRight.scale.y = 1;
 }
 
-function createHudOverlay(app: HTMLElement): void {
+function startStageCountdown(world: World): void {
+  world.phase = 'countdown';
+  world.stageCountdownMs = 2000;
+  gameStore.getState().setHud({
+    overlayMessage: `Stage ${world.currentStage} incoming`,
+    showNextStage: false
+  });
+}
+
+function prepareNextStage(world: World): void {
+  const nextStage = Math.min(world.maxStage, world.currentStage + 1) as 1 | 2 | 3 | 4 | 5;
+  world.currentStage = nextStage;
+  world.phase = 'countdown';
+  world.stageCountdownMs = 2000;
+
+  const bossHealth = world.health.get(world.fabricatorEntity);
+  if (bossHealth) {
+    const maxHpByStage = [0, 1200, 1650, 2300, 3200, 4600];
+    bossHealth.max = maxHpByStage[nextStage];
+    bossHealth.current = bossHealth.max;
+  }
+  const bossTransform = world.transforms.get(world.fabricatorEntity);
+  if (bossTransform) {
+    bossTransform.y = world.arena.maxY - 1.2;
+  }
+  const obstacleRoles: Array<'obstacle' | 'enemyBullet' | 'enemyJet'> = ['obstacle', 'enemyBullet', 'enemyJet'];
+  for (const role of obstacleRoles) {
+    for (const entity of world.getEntitiesByRole(role)) {
+      world.releaseToPool(entity);
+    }
+  }
+  gameStore.getState().setHud({
+    showNextStage: false,
+    overlayMessage: `Stage ${nextStage} incoming`,
+    endState: 'none'
+  });
+}
+
+function createIntroPage(
+  app: HTMLElement,
+  world: World,
+  openSettings: () => void,
+  onStart: () => void
+): void {
+  const intro = document.createElement('div');
+  intro.style.position = 'absolute';
+  intro.style.inset = '0';
+  intro.style.zIndex = '30';
+  intro.style.display = 'grid';
+  intro.style.placeItems = 'center';
+  intro.style.background =
+    'radial-gradient(circle at 20% 25%, rgba(78, 196, 255, 0.14), rgba(10, 25, 36, 0.86) 50%), radial-gradient(circle at 80% 78%, rgba(255, 149, 92, 0.16), rgba(8, 15, 24, 0.94) 52%)';
+  intro.style.backdropFilter = 'blur(5px)';
+  app.appendChild(intro);
+
+  const panel = document.createElement('div');
+  panel.style.width = 'min(92vw, 520px)';
+  panel.style.border = '1px solid rgba(138, 228, 255, 0.62)';
+  panel.style.borderRadius = '18px';
+  panel.style.padding = '18px 16px';
+  panel.style.background = 'linear-gradient(165deg, rgba(7, 24, 34, 0.9), rgba(5, 12, 20, 0.88))';
+  panel.style.boxShadow = '0 18px 42px rgba(0, 0, 0, 0.48)';
+  panel.style.display = 'grid';
+  panel.style.gap = '12px';
+  intro.appendChild(panel);
+
+  const title = document.createElement('div');
+  title.textContent = 'IRON TIDE • ZERO HOUR';
+  title.style.color = '#e8fbff';
+  title.style.fontSize = '24px';
+  title.style.fontWeight = '700';
+  title.style.letterSpacing = '0.08em';
+  panel.appendChild(title);
+
+  const subtitle = document.createElement('div');
+  subtitle.textContent = '5-stage assault. Customize your hero and environment before launch.';
+  subtitle.style.color = 'rgba(203, 237, 248, 0.88)';
+  subtitle.style.fontSize = '13px';
+  subtitle.style.letterSpacing = '0.04em';
+  panel.appendChild(subtitle);
+
+  const actionRow = document.createElement('div');
+  actionRow.style.display = 'flex';
+  actionRow.style.gap = '10px';
+  panel.appendChild(actionRow);
+
+  const startButton = document.createElement('button');
+  startButton.textContent = 'Start Mission';
+  startButton.style.flex = '1';
+  startButton.style.height = '44px';
+  startButton.style.borderRadius = '12px';
+  startButton.style.border = '1px solid rgba(147, 241, 255, 0.92)';
+  startButton.style.background = 'linear-gradient(130deg, rgba(55, 158, 205, 0.6), rgba(22, 66, 98, 0.72))';
+  startButton.style.color = '#e7fbff';
+  startButton.style.fontWeight = '700';
+  startButton.style.letterSpacing = '0.06em';
+  actionRow.appendChild(startButton);
+
+  const settingsButton = document.createElement('button');
+  settingsButton.textContent = 'Settings';
+  settingsButton.style.width = '120px';
+  settingsButton.style.height = '44px';
+  settingsButton.style.borderRadius = '12px';
+  settingsButton.style.border = '1px solid rgba(255, 199, 144, 0.88)';
+  settingsButton.style.background = 'linear-gradient(135deg, rgba(140, 68, 26, 0.7), rgba(82, 39, 17, 0.68))';
+  settingsButton.style.color = '#fff4e6';
+  settingsButton.style.fontWeight = '700';
+  settingsButton.style.letterSpacing = '0.05em';
+  actionRow.appendChild(settingsButton);
+
+  const stageHint = document.createElement('div');
+  stageHint.style.color = 'rgba(189, 233, 247, 0.9)';
+  stageHint.style.fontSize = '12px';
+  stageHint.style.letterSpacing = '0.03em';
+  stageHint.textContent =
+    'Stage 1 eases you in. Each stage adds new enemy patterns, boss attacks, and fantasy hazards.';
+  panel.appendChild(stageHint);
+
+  settingsButton.addEventListener('click', () => openSettings());
+  startButton.addEventListener('click', () => {
+    intro.style.display = 'none';
+    world.phase = 'countdown';
+    onStart();
+  });
+}
+
+function createHudOverlay(app: HTMLElement, world: World): void {
+  if (!document.getElementById('game-anim-style')) {
+    const style = document.createElement('style');
+    style.id = 'game-anim-style';
+    style.textContent = `
+      @keyframes pulse {
+        from { transform: translate(-50%, -50%) scale(0.98); }
+        to { transform: translate(-50%, -50%) scale(1.04); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
   const root = document.createElement('div');
   root.style.position = 'absolute';
   root.style.left = '0';
@@ -1193,18 +1351,59 @@ function createHudOverlay(app: HTMLElement): void {
   gameOver.style.top = '50%';
   gameOver.style.left = '50%';
   gameOver.style.transform = 'translate(-50%, -50%)';
-  gameOver.style.padding = '22px 26px';
-  gameOver.style.borderRadius = '16px';
+  gameOver.style.padding = '26px 28px';
+  gameOver.style.borderRadius = '999px';
   gameOver.style.border = '1px solid rgba(132, 230, 255, 0.6)';
-  gameOver.style.background = 'rgba(7, 14, 23, 0.62)';
+  gameOver.style.background = 'radial-gradient(circle, rgba(18, 49, 66, 0.9), rgba(7, 14, 23, 0.72) 68%)';
   gameOver.style.backdropFilter = 'blur(14px)';
   gameOver.style.color = '#f4fbff';
-  gameOver.style.fontSize = '22px';
+  gameOver.style.fontSize = '20px';
   gameOver.style.fontWeight = '700';
   gameOver.style.letterSpacing = '0.12em';
   gameOver.style.display = 'none';
-  gameOver.textContent = 'Session Over';
+  gameOver.style.boxShadow = '0 0 0 2px rgba(147, 227, 255, 0.2), 0 0 40px rgba(87, 170, 210, 0.35)';
+  gameOver.textContent = '';
   app.appendChild(gameOver);
+
+  const centerOverlay = document.createElement('div');
+  centerOverlay.style.position = 'absolute';
+  centerOverlay.style.left = '50%';
+  centerOverlay.style.top = '52%';
+  centerOverlay.style.transform = 'translate(-50%, -50%)';
+  centerOverlay.style.display = 'none';
+  centerOverlay.style.flexDirection = 'column';
+  centerOverlay.style.gap = '12px';
+  centerOverlay.style.alignItems = 'center';
+  centerOverlay.style.zIndex = '24';
+  app.appendChild(centerOverlay);
+
+  const centerLabel = document.createElement('div');
+  centerLabel.style.padding = '12px 16px';
+  centerLabel.style.borderRadius = '999px';
+  centerLabel.style.border = '1px solid rgba(126, 226, 255, 0.8)';
+  centerLabel.style.background = 'rgba(8, 22, 34, 0.78)';
+  centerLabel.style.backdropFilter = 'blur(10px)';
+  centerLabel.style.color = '#e8f9ff';
+  centerLabel.style.fontWeight = '700';
+  centerLabel.style.letterSpacing = '0.08em';
+  centerOverlay.appendChild(centerLabel);
+
+  const nextStageButton = document.createElement('button');
+  nextStageButton.textContent = 'Next Stage';
+  nextStageButton.style.height = '40px';
+  nextStageButton.style.padding = '0 16px';
+  nextStageButton.style.border = '1px solid rgba(154, 245, 255, 0.9)';
+  nextStageButton.style.borderRadius = '999px';
+  nextStageButton.style.background = 'linear-gradient(130deg, rgba(61, 162, 208, 0.75), rgba(20, 76, 110, 0.7))';
+  nextStageButton.style.color = '#ebfcff';
+  nextStageButton.style.fontWeight = '700';
+  nextStageButton.style.letterSpacing = '0.06em';
+  nextStageButton.style.display = 'none';
+  centerOverlay.appendChild(nextStageButton);
+  nextStageButton.addEventListener('click', () => {
+    centerOverlay.style.display = 'none';
+    prepareNextStage(world);
+  });
 
   gameStore.subscribe((state) => {
     const tankerPct = Math.max(0, Math.min(100, state.tankerHp));
@@ -1214,15 +1413,28 @@ function createHudOverlay(app: HTMLElement): void {
     bossBar.fill.style.width = `${bossPct}%`;
     bossBar.value.textContent = `${Math.ceil(state.bossHp)} / ${Math.ceil(state.bossMaxHp)}`;
     if (state.endState === 'victory') {
-      gameOver.textContent = 'Victory';
+      gameOver.textContent = 'VICTORY';
       gameOver.style.border = '1px solid rgba(129, 255, 214, 0.72)';
       gameOver.style.color = '#defff1';
+      gameOver.style.animation = 'pulse 950ms ease-in-out infinite alternate';
     } else {
-      gameOver.textContent = 'Session Over';
+      gameOver.textContent = 'DEFEAT';
       gameOver.style.border = '1px solid rgba(132, 230, 255, 0.6)';
       gameOver.style.color = '#f4fbff';
+      gameOver.style.animation = 'pulse 700ms ease-in-out infinite alternate';
     }
     gameOver.style.display = state.isGameOver ? 'block' : 'none';
+
+    if (state.showNextStage || world.phase === 'countdown') {
+      centerOverlay.style.display = 'flex';
+      centerLabel.textContent =
+        world.phase === 'countdown'
+          ? `Stage ${world.currentStage} begins in ${Math.max(1, Math.ceil(world.stageCountdownMs / 1000))}`
+          : state.overlayMessage || `Stage ${world.currentStage} Cleared`;
+      nextStageButton.style.display = state.showNextStage ? 'block' : 'none';
+    } else if (!state.isGameOver) {
+      centerOverlay.style.display = 'none';
+    }
   });
 }
 
@@ -1235,11 +1447,11 @@ function watchSessionEnd(loop: GameLoop, world: World, previous: { highScore: nu
     committed = true;
     loop.stop();
     const high = Math.max(previous.highScore, Math.floor(state.score));
-    const stage = world.bosses.get(world.fabricatorEntity)?.stage ?? 1;
+    const stage = world.currentStage;
     await sdkSaveProgress({
       highScore: high,
       totalRuns: previous.totalRuns + 1,
-      lastStageReached: stage
+      lastStageReached: (stage > 3 ? 3 : stage) as 1 | 2 | 3
     });
     gameStore.getState().setHighScore(high);
   });

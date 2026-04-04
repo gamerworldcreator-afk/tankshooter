@@ -13,7 +13,9 @@ export class PhysicsSystem implements System {
   public update(world: World, dt: number): void {
     this.tickLifetimes(world, dt);
     this.integrate(world, dt);
-    this.resolveCollisions(world);
+    if (world.phase === 'playing') {
+      this.resolveCollisions(world);
+    }
   }
 
   private tickLifetimes(world: World, dt: number): void {
@@ -65,17 +67,34 @@ export class PhysicsSystem implements System {
         world.releaseToPool(entity);
       }
     }
-    this.handleObstacleFire(world, dt);
+    if (world.phase === 'playing') {
+      this.handleObstacleFire(world, dt);
+    }
   }
 
   private resolveCollisions(world: World): void {
     const bullets = world.getEntitiesByRole('bullet');
     const enemyBullets = world.getEntitiesByRole('enemyBullet');
-    const obstacles = world.getEntitiesByRole('obstacle');
+    const obstacles = [...world.getEntitiesByRole('obstacle'), ...world.getEntitiesByRole('enemyJet')];
     const fabricator = world.fabricatorEntity;
     const tanker = world.tankerEntity;
 
     for (const bullet of bullets) {
+      for (const enemyBullet of enemyBullets) {
+        if (!world.isEntityActive(enemyBullet) || !this.intersects(world, bullet, enemyBullet)) {
+          continue;
+        }
+        const bt = world.transforms.get(bullet);
+        world.releaseToPool(bullet);
+        world.releaseToPool(enemyBullet);
+        if (bt) {
+          this.emitImpactBurst(world, bt.x, bt.y, 0xcdf8ff, 6, 5.2);
+        }
+        break;
+      }
+      if (!world.isEntityActive(bullet)) {
+        continue;
+      }
       for (const obstacle of obstacles) {
         if (!this.intersects(world, bullet, obstacle)) {
           continue;
@@ -139,7 +158,7 @@ export class PhysicsSystem implements System {
   }
 
   private handleObstacleFire(world: World, dt: number): void {
-    const obstacles = world.getEntitiesByRole('obstacle');
+    const obstacles = [...world.getEntitiesByRole('obstacle'), ...world.getEntitiesByRole('enemyJet')];
     const tankerTransform = world.transforms.get(world.tankerEntity);
     if (!tankerTransform) {
       return;
@@ -158,15 +177,16 @@ export class PhysicsSystem implements System {
       const dx = tankerTransform.x - obstacleTransform.x;
       const dy = tankerTransform.y - obstacleTransform.y;
       const mag = Math.hypot(dx, dy) || 1;
+      const cadenceFactor = world.currentStage === 1 ? 1.9 : world.currentStage === 2 ? 1.3 : 1;
       world.queueSpawn({
         key: 'enemyBullet',
         role: 'enemyBullet',
         x: obstacleTransform.x,
         y: obstacleTransform.y - 0.5,
-        vx: (dx / mag) * 5.8,
-        vy: Math.min(-5.4, (dy / mag) * 5.8)
+        vx: (dx / mag) * (world.currentStage >= 4 ? 7.1 : 5.8),
+        vy: Math.min(-5.4, (dy / mag) * (world.currentStage >= 4 ? 7.1 : 5.8))
       });
-      world.obstacleFireCooldownMs.set(obstacle, 840 + Math.random() * 920);
+      world.obstacleFireCooldownMs.set(obstacle, (840 + Math.random() * 920) * cadenceFactor);
     }
   }
 

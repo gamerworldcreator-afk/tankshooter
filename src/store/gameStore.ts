@@ -5,11 +5,13 @@ export interface HudState {
   highScore: number;
   bossHp: number;
   bossMaxHp: number;
-  bossStage: 1 | 2 | 3;
+  bossStage: 1 | 2 | 3 | 4 | 5;
   tankerHp: number;
   pulseCooldownMs: number;
   isGameOver: boolean;
   endState: 'none' | 'victory' | 'defeat';
+  overlayMessage: string;
+  showNextStage: boolean;
   shakeDelta: { x: number; y: number };
 }
 
@@ -34,6 +36,8 @@ const INITIAL_STATE: HudState = {
   pulseCooldownMs: 0,
   isGameOver: false,
   endState: 'none',
+  overlayMessage: '',
+  showNextStage: false,
   shakeDelta: { x: 0, y: 0 }
 };
 

@@ -21,7 +21,7 @@ export class SpawnSystem implements System {
     this.bulletCooldownMs -= dt * 1000;
     this.obstacleCooldownMs -= dt * 1000;
 
-    if (world.input.shootHeld && this.bulletCooldownMs <= 0) {
+    if (world.phase === 'playing' && world.input.shootHeld && this.bulletCooldownMs <= 0) {
       this.bulletCooldownMs = 110;
       const drift = this.volleyFlip ? 0.7 : -0.7;
       this.volleyFlip = !this.volleyFlip;
@@ -51,17 +51,17 @@ export class SpawnSystem implements System {
       });
     }
 
-    const stage = world.bosses.get(world.fabricatorEntity)?.stage ?? 1;
-    const spawnRate = stage === 1 ? 500 : stage === 2 ? 430 : 330;
-    if (this.obstacleCooldownMs <= 0) {
+    const stage = world.currentStage;
+    const spawnRate = stage === 1 ? 760 : stage === 2 ? 560 : stage === 3 ? 430 : stage === 4 ? 340 : 260;
+    if (world.phase === 'playing' && this.obstacleCooldownMs <= 0) {
       this.obstacleCooldownMs = spawnRate;
       world.queueSpawn({
         key: 'obstacle',
         role: 'obstacle',
         x: world.arena.minX + Math.random() * (world.arena.maxX - world.arena.minX),
         y: world.arena.maxY + 1.3,
-        vx: (Math.random() - 0.5) * 2.2,
-        vy: -4 - stage * 0.45
+        vx: (Math.random() - 0.5) * (stage >= 4 ? 4.2 : 2.4),
+        vy: -3.6 - stage * 0.58
       });
     }
 
@@ -123,6 +123,7 @@ export class SpawnSystem implements System {
 
   private configureObstacle(world: World, entity: number): void {
     const roll = Math.random();
+    const stage = world.currentStage;
     const transform = world.transforms.get(entity);
     const velocity = world.velocities.get(entity);
     const health = world.health.get(entity);
@@ -141,7 +142,7 @@ export class SpawnSystem implements System {
       world.hitboxes.set(entity, { w: 0.7, h: 0.9 });
       world.obstacleSway.set(entity, { amplitude: 0.9, frequency: 6.2, phase: Math.random() * Math.PI * 2 });
       world.angularVelocity.set(entity, (Math.random() - 0.5) * 8);
-      world.obstacleFireCooldownMs.set(entity, 1200 + Math.random() * 900);
+      world.obstacleFireCooldownMs.set(entity, stage === 1 ? 3200 + Math.random() * 1800 : 1200 + Math.random() * 900);
       this.tintObstacle(render.mesh, 0x9dd7ff, 0x1d3758);
       return;
     }
@@ -156,7 +157,7 @@ export class SpawnSystem implements System {
       world.hitboxes.set(entity, { w: 1.0, h: 1.0 });
       world.obstacleSway.set(entity, { amplitude: 0.35, frequency: 3.4, phase: Math.random() * Math.PI * 2 });
       world.angularVelocity.set(entity, (Math.random() - 0.5) * 2.5);
-      world.obstacleFireCooldownMs.set(entity, 950 + Math.random() * 700);
+      world.obstacleFireCooldownMs.set(entity, stage === 1 ? 2800 + Math.random() * 1500 : 950 + Math.random() * 700);
       this.tintObstacle(render.mesh, 0x85f2d2, 0x0f594f);
       return;
     }
@@ -170,7 +171,7 @@ export class SpawnSystem implements System {
     world.hitboxes.set(entity, { w: 0.5, h: 0.5 });
     world.obstacleSway.set(entity, { amplitude: 1.4, frequency: 8.1, phase: Math.random() * Math.PI * 2 });
     world.angularVelocity.set(entity, (Math.random() - 0.5) * 12);
-    world.obstacleFireCooldownMs.set(entity, 760 + Math.random() * 520);
+    world.obstacleFireCooldownMs.set(entity, stage === 1 ? 2200 + Math.random() * 1100 : 760 + Math.random() * 520);
     this.tintObstacle(render.mesh, 0xffb995, 0x6b3314);
   }
 

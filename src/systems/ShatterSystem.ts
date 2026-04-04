@@ -35,13 +35,34 @@ export class ShatterSystem implements System {
       }
 
       if (role === 'fabricator') {
-        gameStore.getState().setHud({ isGameOver: true, endState: 'victory' });
+        if (world.currentStage < world.maxStage) {
+          world.phase = 'stageClear';
+          gameStore.getState().setHud({
+            showNextStage: true,
+            overlayMessage: `Stage ${world.currentStage} Cleared`,
+            endState: 'none'
+          });
+        } else {
+          world.phase = 'victory';
+          gameStore.getState().setHud({
+            isGameOver: true,
+            endState: 'victory',
+            overlayMessage: 'Final Victory',
+            showNextStage: false
+          });
+        }
         world.feedbackQueue.push({ kind: 'explosion', magnitude: 0.8, haptics: [30, 30, 40] });
         world.addScore(5000);
       }
 
       if (role === 'tanker') {
-        gameStore.getState().setHud({ isGameOver: true, endState: 'defeat' });
+        world.phase = 'defeat';
+        gameStore.getState().setHud({
+          isGameOver: true,
+          endState: 'defeat',
+          overlayMessage: 'Defeat',
+          showNextStage: false
+        });
       }
     }
   }

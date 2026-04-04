@@ -12,6 +12,7 @@ export type EntityRole =
   | 'fabricator'
   | 'bullet'
   | 'enemyBullet'
+  | 'enemyJet'
   | 'obstacle'
   | 'debris'
   | 'subParticle'
@@ -93,6 +94,10 @@ export class World {
 
   public timeMs = 0;
   public score = 0;
+  public phase: 'lobby' | 'countdown' | 'playing' | 'stageClear' | 'defeat' | 'victory' = 'lobby';
+  public stageCountdownMs = 0;
+  public currentStage: 1 | 2 | 3 | 4 | 5 = 1;
+  public readonly maxStage = 5;
   public tankerEntity = -1;
   public fabricatorEntity = -1;
 
@@ -236,6 +241,12 @@ export class World {
 
   public tick(dt: number): void {
     this.timeMs += dt * 1000;
+    if (this.phase === 'countdown') {
+      this.stageCountdownMs = Math.max(0, this.stageCountdownMs - dt * 1000);
+      if (this.stageCountdownMs <= 0) {
+        this.phase = 'playing';
+      }
+    }
     for (const system of this.systems) {
       system.update(this, dt);
     }
