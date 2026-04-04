@@ -3,7 +3,7 @@ import type { System, World } from '../core/World';
 
 const BULLET_DAMAGE = 22;
 const TANKER_COLLISION_DAMAGE = 14;
-const TANKER_LEAK_DAMAGE = 8;
+const ENEMY_BULLET_DAMAGE = 10;
 const FABRICATOR_DAMAGE = 9;
 
 export class PhysicsSystem implements System {
@@ -47,6 +47,8 @@ export class PhysicsSystem implements System {
       const sway = world.obstacleSway.get(entity);
       if (sway) {
         transform.x += Math.sin(world.timeMs * 0.001 * sway.frequency + sway.phase) * sway.amplitude * dt;
+        transform.rotX += dt * sway.frequency * 0.12;
+        transform.rotY += dt * sway.frequency * 0.09;
       }
 
       if (entity === world.tankerEntity) {
@@ -59,21 +61,16 @@ export class PhysicsSystem implements System {
         continue;
       }
 
-      if ((role === 'obstacle' || role === 'debris' || role === 'subParticle') && transform.y < world.arena.minY - 2) {
-        if (role === 'obstacle') {
-          world.applyDamage(world.tankerEntity, TANKER_LEAK_DAMAGE);
-          world.feedbackQueue.push({ kind: 'hit', magnitude: 0.2, haptics: [18] });
-          if ((world.health.get(world.tankerEntity)?.current ?? 1) <= 0) {
-            gameStore.getState().setHud({ isGameOver: true, endState: 'defeat' });
-          }
-        }
+      if ((role === 'obstacle' || role === 'debris' || role === 'subParticle' || role === 'enemyBullet') && transform.y < world.arena.minY - 2) {
         world.releaseToPool(entity);
       }
     }
+    this.handleObstacleFire(world, dt);
   }
 
   private resolveCollisions(world: World): void {
     const bullets = world.getEntitiesByRole('bullet');
+    const enemyBullets = world.getEntitiesByRole('enemyBullet');
     const obstacles = world.getEntitiesByRole('obstacle');
     const fabricator = world.fabricatorEntity;
     const tanker = world.tankerEntity;
@@ -122,6 +119,54 @@ export class PhysicsSystem implements System {
       if ((world.health.get(tanker)?.current ?? 1) <= 0) {
         gameStore.getState().setHud({ isGameOver: true, endState: 'defeat' });
       }
+    }
+
+    for (const enemyBullet of enemyBullets) {
+      if (tanker < 0 || !this.intersects(world, enemyBullet, tanker)) {
+        continue;
+      }
+      world.releaseToPool(enemyBullet);
+      world.applyDamage(tanker, ENEMY_BULLET_DAMAGE);
+      world.feedbackQueue.push({ kind: 'hit', magnitude: 0.22, haptics: [24] });
+      const tankerTransform = world.transforms.get(tanker);
+      if (tankerTransform) {
+        this.emitImpactBurst(world, tankerTransform.x, tankerTransform.y, 0xffb993, 9, 6.6);
+      }
+      if ((world.health.get(tanker)?.current ?? 1) <= 0) {
+        gameStore.getState().setHud({ isGameOver: true, endState: 'defeat' });
+      }
+    }
+  }
+
+  private handleObstacleFire(world: World, dt: number): void {
+    const obstacles = world.getEntitiesByRole('obstacle');
+    const tankerTransform = world.transforms.get(world.tankerEntity);
+    if (!tankerTransform) {
+      return;
+    }
+    for (const obstacle of obstacles) {
+      const obstacleTransform = world.transforms.get(obstacle);
+      if (!obstacleTransform || obstacleTransform.y > world.arena.maxY - 0.3) {
+        continue;
+      }
+      const prev = world.obstacleFireCooldownMs.get(obstacle) ?? 999;
+      const next = prev - dt * 1000;
+      if (next > 0) {
+        world.obstacleFireCooldownMs.set(obstacle, next);
+        continue;
+      }
+      const dx = tankerTransform.x - obstacleTransform.x;
+      const dy = tankerTransform.y - obstacleTransform.y;
+      const mag = Math.hypot(dx, dy) || 1;
+      world.queueSpawn({
+        key: 'enemyBullet',
+        role: 'enemyBullet',
+        x: obstacleTransform.x,
+        y: obstacleTransform.y - 0.5,
+        vx: (dx / mag) * 5.8,
+        vy: Math.min(-5.4, (dy / mag) * 5.8)
+      });
+      world.obstacleFireCooldownMs.set(obstacle, 840 + Math.random() * 920);
     }
   }
 

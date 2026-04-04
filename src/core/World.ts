@@ -11,6 +11,7 @@ export type EntityRole =
   | 'tanker'
   | 'fabricator'
   | 'bullet'
+  | 'enemyBullet'
   | 'obstacle'
   | 'debris'
   | 'subParticle'
@@ -69,6 +70,7 @@ export class World {
   public readonly lifetimesMs = new Map<number, number>();
   public readonly angularVelocity = new Map<number, number>();
   public readonly obstacleSway = new Map<number, { amplitude: number; frequency: number; phase: number }>();
+  public readonly obstacleFireCooldownMs = new Map<number, number>();
 
   public readonly spawnQueue: SpawnCommand[] = [];
   public readonly feedbackQueue: FeedbackEvent[] = [];
@@ -177,6 +179,7 @@ export class World {
     this.lifetimesMs.delete(entity);
     this.angularVelocity.delete(entity);
     this.obstacleSway.delete(entity);
+    this.obstacleFireCooldownMs.delete(entity);
     const velocity = this.velocities.get(entity);
     if (velocity) {
       velocity.vx = 0;

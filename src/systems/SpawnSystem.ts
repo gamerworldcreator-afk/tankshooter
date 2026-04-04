@@ -141,6 +141,7 @@ export class SpawnSystem implements System {
       world.hitboxes.set(entity, { w: 0.7, h: 0.9 });
       world.obstacleSway.set(entity, { amplitude: 0.9, frequency: 6.2, phase: Math.random() * Math.PI * 2 });
       world.angularVelocity.set(entity, (Math.random() - 0.5) * 8);
+      world.obstacleFireCooldownMs.set(entity, 1200 + Math.random() * 900);
       this.tintObstacle(render.mesh, 0x9dd7ff, 0x1d3758);
       return;
     }
@@ -155,6 +156,7 @@ export class SpawnSystem implements System {
       world.hitboxes.set(entity, { w: 1.0, h: 1.0 });
       world.obstacleSway.set(entity, { amplitude: 0.35, frequency: 3.4, phase: Math.random() * Math.PI * 2 });
       world.angularVelocity.set(entity, (Math.random() - 0.5) * 2.5);
+      world.obstacleFireCooldownMs.set(entity, 950 + Math.random() * 700);
       this.tintObstacle(render.mesh, 0x85f2d2, 0x0f594f);
       return;
     }
@@ -168,6 +170,7 @@ export class SpawnSystem implements System {
     world.hitboxes.set(entity, { w: 0.5, h: 0.5 });
     world.obstacleSway.set(entity, { amplitude: 1.4, frequency: 8.1, phase: Math.random() * Math.PI * 2 });
     world.angularVelocity.set(entity, (Math.random() - 0.5) * 12);
+    world.obstacleFireCooldownMs.set(entity, 760 + Math.random() * 520);
     this.tintObstacle(render.mesh, 0xffb995, 0x6b3314);
   }
 

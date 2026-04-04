@@ -24,8 +24,23 @@ export class BossEvolutionSystem implements System {
       world.feedbackQueue.push({ kind: 'explosion', magnitude: 0.45, haptics: [20, 20, 30] });
     }
 
+    this.updateBossMovement(world, boss.stage);
     this.updateShieldVisual(world, boss.shieldActive);
     this.updateTrackingBeam(world, dt, boss);
+  }
+
+  private updateBossMovement(world: World, stage: 1 | 2 | 3): void {
+    const transform = world.transforms.get(world.fabricatorEntity);
+    if (!transform) {
+      return;
+    }
+    const t = world.timeMs * 0.001;
+    const range = (world.arena.maxX - world.arena.minX) * 0.36;
+    const pattern =
+      Math.sin(t * (0.62 + stage * 0.05)) * range * 0.7 +
+      Math.sin(t * (1.24 + stage * 0.08) + 1.3) * range * 0.35;
+    transform.x = THREE.MathUtils.clamp(pattern, world.arena.minX + 1.2, world.arena.maxX - 1.2);
+    transform.y = world.arena.maxY - 1.25 + Math.sin(t * 0.9 + 0.8) * 0.28;
   }
 
   private updateShieldVisual(world: World, enabled: boolean): void {

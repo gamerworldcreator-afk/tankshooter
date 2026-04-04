@@ -37,6 +37,7 @@ async function bootstrap(): Promise<void> {
   const world = new World();
   const renderer = new Renderer(world, app);
   createBackdrop(renderer.scene);
+  syncArenaBounds(world, renderer);
   createHudOverlay(app);
   sdkReportProgress(26);
 
@@ -47,8 +48,10 @@ async function bootstrap(): Promise<void> {
 
   buildEntities(world, renderer.scene);
   createSettingsPage(app, renderer.scene);
+  syncArenaBounds(world, renderer);
   registerSystems(world);
   bindInput(world, renderer.rawRenderer.domElement, renderer.camera, app);
+  window.addEventListener('resize', () => syncArenaBounds(world, renderer));
   sdkReportProgress(85);
 
   await sdkStart();
@@ -108,13 +111,50 @@ function createBackdrop(scene: THREE.Scene): void {
   scene.add(leftRail, rightRail);
 }
 
+function syncArenaBounds(world: World, renderer: Renderer): void {
+  const camera = renderer.camera;
+  const xMargin = 0.75;
+  const topMargin = 1.6;
+  const bottomMargin = 3.15;
+  world.arena.minX = camera.left + xMargin;
+  world.arena.maxX = camera.right - xMargin;
+  world.arena.minY = camera.bottom + bottomMargin;
+  world.arena.maxY = camera.top - topMargin;
+
+  const tanker = world.transforms.get(world.tankerEntity);
+  if (tanker) {
+    tanker.x = THREE.MathUtils.clamp(tanker.x, world.arena.minX, world.arena.maxX);
+    tanker.y = world.arena.minY + 2.35;
+  }
+  const pulseWave = world.getEntitiesByRole('pulseWave', false)[0];
+  const pulseTransform = pulseWave ? world.transforms.get(pulseWave) : undefined;
+  if (pulseTransform && tanker) {
+    pulseTransform.y = tanker.y;
+  }
+
+  const boss = world.transforms.get(world.fabricatorEntity);
+  if (boss) {
+    boss.x = THREE.MathUtils.clamp(boss.x, world.arena.minX + 1.2, world.arena.maxX - 1.2);
+    boss.y = world.arena.maxY - 1.2;
+  }
+
+  const leftRail = renderer.scene.getObjectByName('leftRail');
+  const rightRail = renderer.scene.getObjectByName('rightRail');
+  if (leftRail) {
+    leftRail.position.x = world.arena.minX - 0.12;
+  }
+  if (rightRail) {
+    rightRail.position.x = world.arena.maxX + 0.12;
+  }
+}
+
 function buildEntities(world: World, scene: THREE.Scene): void {
   const tanker = world.createEntity('tanker');
   world.tankerEntity = tanker;
   world.addComponent(tanker, {
     type: 'Transform',
     x: 0,
-    y: -7.8,
+    y: world.arena.minY + 2.35,
     z: 0,
     rotX: 0,
     rotY: 0,
@@ -174,7 +214,7 @@ function buildEntities(world: World, scene: THREE.Scene): void {
   world.addComponent(fabricator, {
     type: 'Transform',
     x: 0,
-    y: 7.2,
+    y: world.arena.maxY - 1.2,
     z: 0,
     rotX: 0,
     rotY: 0,
@@ -271,7 +311,7 @@ function buildEntities(world: World, scene: THREE.Scene): void {
   world.addComponent(pulseWave, {
     type: 'Transform',
     x: 0,
-    y: -7.8,
+    y: world.arena.minY + 2.35,
     z: 0.03,
     rotX: 0,
     rotY: 0,
@@ -384,6 +424,24 @@ function createPooledEntities(world: World, scene: THREE.Scene): void {
         metalness: 0.52
       })
     );
+    if (i % 2 === 0) {
+      const fin = new THREE.Mesh(
+        new THREE.ConeGeometry(0.08, 0.46, 6),
+        new THREE.MeshStandardMaterial({ color: 0xa6d4eb, emissive: 0x264765, emissiveIntensity: 0.6 })
+      );
+      fin.position.set(0, 0.42, 0);
+      fin.rotation.x = Math.PI;
+      mesh.add(fin);
+    }
+    if (i % 3 === 0) {
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(0.38, 0.03, 8, 24),
+        new THREE.MeshBasicMaterial({ color: 0x88d8ff, transparent: true, opacity: 0.6 })
+      );
+      ring.rotation.x = Math.PI * 0.5;
+      ring.layers.enable(BLOOM_LAYER);
+      mesh.add(ring);
+    }
     const coreGlow = new THREE.Mesh(
       new THREE.SphereGeometry(0.09, 8, 8),
       new THREE.MeshBasicMaterial({ color: 0x9bf5ff, transparent: true, opacity: 0.75 })
@@ -397,6 +455,36 @@ function createPooledEntities(world: World, scene: THREE.Scene): void {
     obstacles.push(e);
   }
   world.registerPool('obstacle', obstacles);
+
+  const enemyBullets: number[] = [];
+  for (let i = 0; i < 80; i += 1) {
+    const e = world.createEntity('enemyBullet');
+    world.addComponent(e, {
+      type: 'Transform',
+      x: 0,
+      y: 100,
+      z: 0,
+      rotX: 0,
+      rotY: 0,
+      rotZ: 0,
+      scaleX: 1,
+      scaleY: 1,
+      scaleZ: 1
+    });
+    world.addComponent(e, { type: 'Velocity', vx: 0, vy: 0, vz: 0 });
+    world.addComponent(e, { type: 'Poolable', poolKey: 'enemyBullet', active: false });
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.1, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xffbf98 })
+    );
+    mesh.visible = false;
+    mesh.layers.enable(BLOOM_LAYER);
+    scene.add(mesh);
+    world.addComponent(e, { type: 'Render', mesh, bloomLayer: BLOOM_LAYER });
+    world.hitboxes.set(e, { w: 0.22, h: 0.22 });
+    enemyBullets.push(e);
+  }
+  world.registerPool('enemyBullet', enemyBullets);
 
   const debris: number[] = [];
   for (let i = 0; i < 50; i += 1) {
@@ -695,19 +783,21 @@ function createTouchControls(app: HTMLElement): {
   actionColumn.appendChild(pulseButton);
 
   const fireButton = document.createElement('button');
-  fireButton.textContent = 'FIRE';
-  fireButton.style.width = '100px';
-  fireButton.style.height = '100px';
+  fireButton.textContent = 'BLAST';
+  fireButton.style.width = '104px';
+  fireButton.style.height = '104px';
   fireButton.style.borderRadius = '999px';
-  fireButton.style.border = '1px solid rgba(255, 188, 130, 0.9)';
-  fireButton.style.color = '#fff0e2';
+  fireButton.style.border = '1px solid rgba(255, 195, 128, 0.95)';
+  fireButton.style.color = '#fff3e3';
   fireButton.style.fontWeight = '700';
-  fireButton.style.fontSize = '16px';
-  fireButton.style.letterSpacing = '0.09em';
+  fireButton.style.fontSize = '15px';
+  fireButton.style.letterSpacing = '0.11em';
+  fireButton.style.textShadow = '0 0 8px rgba(255, 206, 140, 0.45)';
   fireButton.style.background =
-    'radial-gradient(circle at 34% 30%, rgba(255, 219, 174, 0.6), rgba(130, 57, 24, 0.58) 72%)';
+    'radial-gradient(circle at 34% 30%, rgba(255, 222, 167, 0.74), rgba(143, 62, 24, 0.66) 70%, rgba(79, 24, 12, 0.72) 100%)';
   fireButton.style.backdropFilter = 'blur(12px)';
-  fireButton.style.boxShadow = '0 10px 24px rgba(0, 0, 0, 0.35), inset 0 0 24px rgba(255, 190, 125, 0.15)';
+  fireButton.style.boxShadow =
+    '0 10px 26px rgba(0, 0, 0, 0.35), 0 0 18px rgba(255, 158, 84, 0.28), inset 0 0 26px rgba(255, 190, 125, 0.18)';
   fireButton.style.pointerEvents = 'auto';
   fireButton.style.touchAction = 'none';
   actionColumn.appendChild(fireButton);
@@ -723,19 +813,23 @@ function createSettingsPage(app: HTMLElement, scene: THREE.Scene): void {
   applyHeroAvatar(scene, currentAvatar);
 
   const openButton = document.createElement('button');
-  openButton.textContent = 'Settings';
+  openButton.textContent = 'S';
   openButton.style.position = 'absolute';
-  openButton.style.right = '8px';
-  openButton.style.top = 'calc(env(safe-area-inset-top, 0px) + 8px)';
+  openButton.style.left = '50%';
+  openButton.style.transform = 'translateX(-50%)';
+  openButton.style.top = 'calc(env(safe-area-inset-top, 0px) + 6px)';
   openButton.style.zIndex = '13';
-  openButton.style.border = '1px solid rgba(128, 231, 255, 0.75)';
-  openButton.style.borderRadius = '10px';
-  openButton.style.padding = '7px 10px';
+  openButton.style.width = '34px';
+  openButton.style.height = '34px';
+  openButton.style.border = '1px solid rgba(128, 231, 255, 0.85)';
+  openButton.style.borderRadius = '999px';
   openButton.style.color = '#dff8ff';
   openButton.style.fontWeight = '700';
-  openButton.style.letterSpacing = '0.04em';
+  openButton.style.fontSize = '12px';
+  openButton.style.letterSpacing = '0.02em';
   openButton.style.background = 'rgba(8, 27, 39, 0.68)';
   openButton.style.backdropFilter = 'blur(8px)';
+  openButton.style.boxShadow = '0 6px 14px rgba(0, 0, 0, 0.35)';
   openButton.style.touchAction = 'none';
   app.appendChild(openButton);
 
@@ -858,41 +952,41 @@ function createSettingsPage(app: HTMLElement, scene: THREE.Scene): void {
   };
 
   const bgButtons = [
-    makeOption('Nebula', bgGrid, () => currentBackground === 'nebula', () => {
+    { preset: 'nebula' as const, button: makeOption('Nebula', bgGrid, () => currentBackground === 'nebula', () => {
       currentBackground = 'nebula';
       applyBackgroundPreset(scene, currentBackground);
-    }),
-    makeOption('Sunset Grid', bgGrid, () => currentBackground === 'sunsetGrid', () => {
+    }) },
+    { preset: 'sunsetGrid' as const, button: makeOption('Sunset Grid', bgGrid, () => currentBackground === 'sunsetGrid', () => {
       currentBackground = 'sunsetGrid';
       applyBackgroundPreset(scene, currentBackground);
-    }),
-    makeOption('Deep Void', bgGrid, () => currentBackground === 'deepVoid', () => {
+    }) },
+    { preset: 'deepVoid' as const, button: makeOption('Deep Void', bgGrid, () => currentBackground === 'deepVoid', () => {
       currentBackground = 'deepVoid';
       applyBackgroundPreset(scene, currentBackground);
-    })
+    }) }
   ];
 
   const avatarButtons = [
-    makeOption('Vanguard', avatarGrid, () => currentAvatar === 'vanguard', () => {
+    { preset: 'vanguard' as const, button: makeOption('Vanguard', avatarGrid, () => currentAvatar === 'vanguard', () => {
       currentAvatar = 'vanguard';
       applyHeroAvatar(scene, currentAvatar);
-    }),
-    makeOption('Spectre', avatarGrid, () => currentAvatar === 'spectre', () => {
+    }) },
+    { preset: 'spectre' as const, button: makeOption('Spectre', avatarGrid, () => currentAvatar === 'spectre', () => {
       currentAvatar = 'spectre';
       applyHeroAvatar(scene, currentAvatar);
-    }),
-    makeOption('Ember', avatarGrid, () => currentAvatar === 'ember', () => {
+    }) },
+    { preset: 'ember' as const, button: makeOption('Ember', avatarGrid, () => currentAvatar === 'ember', () => {
       currentAvatar = 'ember';
       applyHeroAvatar(scene, currentAvatar);
-    })
+    }) }
   ];
 
   const refreshButtons = (): void => {
-    for (const button of bgButtons) {
-      optionStyle(button, button.textContent === (currentBackground === 'sunsetGrid' ? 'Sunset Grid' : currentBackground === 'deepVoid' ? 'Deep Void' : 'Nebula'));
+    for (const item of bgButtons) {
+      optionStyle(item.button, item.preset === currentBackground);
     }
-    for (const button of avatarButtons) {
-      optionStyle(button, button.textContent === (currentAvatar === 'vanguard' ? 'Vanguard' : currentAvatar === 'spectre' ? 'Spectre' : 'Ember'));
+    for (const item of avatarButtons) {
+      optionStyle(item.button, item.preset === currentAvatar);
     }
   };
   refreshButtons();
