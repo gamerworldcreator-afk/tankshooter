@@ -66,52 +66,21 @@ async function bootstrap(): Promise<void> {
 }
 
 function createBackdrop(scene: THREE.Scene): void {
-  const makeStars = (
-    name: string,
-    count: number,
-    spread: number,
-    zBase: number,
-    size: number,
-    opacity: number,
-    color: number
-  ): THREE.Points => {
-    const stars = new THREE.BufferGeometry();
-    const vertices = new Float32Array(count * 3);
-    for (let i = 0; i < count; i += 1) {
-      vertices[i * 3] = (Math.random() - 0.5) * spread;
-      vertices[i * 3 + 1] = (Math.random() - 0.5) * spread;
-      vertices[i * 3 + 2] = zBase - Math.random() * 14;
-    }
-    stars.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-    const points = new THREE.Points(
-      stars,
-      new THREE.PointsMaterial({ color, size, transparent: true, opacity })
-    );
-    points.name = name;
-    scene.add(points);
-    return points;
-  };
-
-  const makeDualStarLayer = (
-    baseName: string,
-    count: number,
-    spread: number,
-    zBase: number,
-    size: number,
-    opacity: number,
-    gapY: number
-  ): void => {
-    const layerA = makeStars(`${baseName}A`, count, spread, zBase, size, opacity, 0x78e2ff);
-    const layerB = makeStars(`${baseName}B`, count, spread, zBase, size, opacity, 0x78e2ff);
-    layerA.userData.parallaxGapY = gapY;
-    layerB.userData.parallaxGapY = gapY;
-    layerA.position.y = 0;
-    layerB.position.y = gapY;
-  };
-
-  makeDualStarLayer('bgStarsFar', 220, 44, -16, 0.03, 0.48, 22);
-  makeDualStarLayer('bgStarsMid', 260, 40, -12, 0.038, 0.76, 22);
-  makeDualStarLayer('bgStarsNear', 180, 34, -8, 0.05, 0.66, 22);
+  const stars = new THREE.BufferGeometry();
+  const count = 360;
+  const vertices = new Float32Array(count * 3);
+  for (let i = 0; i < count; i += 1) {
+    vertices[i * 3] = (Math.random() - 0.5) * 26;
+    vertices[i * 3 + 1] = (Math.random() - 0.5) * 26;
+    vertices[i * 3 + 2] = -8 - Math.random() * 16;
+  }
+  stars.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+  const points = new THREE.Points(
+    stars,
+    new THREE.PointsMaterial({ color: 0x78e2ff, size: 0.035, transparent: true, opacity: 0.8 })
+  );
+  points.name = 'bgStars';
+  scene.add(points);
 
   const hazeFar = new THREE.Mesh(
     new THREE.PlaneGeometry(44, 28),
@@ -137,13 +106,8 @@ function createBackdrop(scene: THREE.Scene): void {
   haze.position.z = -6.8;
   scene.add(haze);
 
-  const starsMidA = scene.getObjectByName('bgStarsMidA');
-  const starsMidB = scene.getObjectByName('bgStarsMidB');
-  if (starsMidA instanceof THREE.Points && starsMidA.material instanceof THREE.PointsMaterial) {
-    starsMidA.material.blending = THREE.AdditiveBlending;
-  }
-  if (starsMidB instanceof THREE.Points && starsMidB.material instanceof THREE.PointsMaterial) {
-    starsMidB.material.blending = THREE.AdditiveBlending;
+  if (points.material instanceof THREE.PointsMaterial) {
+    points.material.blending = THREE.AdditiveBlending;
   }
 
   const ambient = new THREE.AmbientLight(0x7ac8ff, 0.48);
@@ -778,7 +742,7 @@ function bindInput(
   });
 
   let movePointerId: number | null = null;
-  const maxTravel = 24;
+  const maxTravel = 20;
   const deadZone = 0.09;
 
   const updateMoveAxis = (clientX: number, clientY: number): void => {
@@ -937,8 +901,8 @@ function createTouchControls(app: HTMLElement): {
   app.appendChild(controlsRoot);
 
   const movePad = document.createElement('div');
-  movePad.style.width = '84px';
-  movePad.style.height = '84px';
+  movePad.style.width = '76px';
+  movePad.style.height = '76px';
   movePad.style.borderRadius = '999px';
   movePad.style.border = '1px solid rgba(118, 231, 255, 0.8)';
   movePad.style.background =
@@ -952,8 +916,8 @@ function createTouchControls(app: HTMLElement): {
   controlsRoot.appendChild(movePad);
 
   const stick = document.createElement('div');
-  stick.style.width = '32px';
-  stick.style.height = '32px';
+  stick.style.width = '28px';
+  stick.style.height = '28px';
   stick.style.borderRadius = '999px';
   stick.style.border = '1px solid rgba(190, 248, 255, 0.96)';
   stick.style.background =
@@ -971,8 +935,8 @@ function createTouchControls(app: HTMLElement): {
 
   const pulseButton = document.createElement('button');
   pulseButton.textContent = 'PULSE';
-  pulseButton.style.width = '56px';
-  pulseButton.style.height = '56px';
+  pulseButton.style.width = '48px';
+  pulseButton.style.height = '48px';
   pulseButton.style.borderRadius = '999px';
   pulseButton.style.border = '1px solid rgba(132, 236, 255, 0.9)';
   pulseButton.style.color = '#dff7ff';
@@ -990,13 +954,13 @@ function createTouchControls(app: HTMLElement): {
 
   const powerButton = document.createElement('button');
   powerButton.textContent = '⚡';
-  powerButton.style.width = '58px';
-  powerButton.style.height = '58px';
+  powerButton.style.width = '52px';
+  powerButton.style.height = '52px';
   powerButton.style.borderRadius = '999px';
   powerButton.style.border = '1px solid rgba(157, 255, 219, 0.94)';
   powerButton.style.color = '#eafff6';
   powerButton.style.fontWeight = '800';
-  powerButton.style.fontSize = '22px';
+  powerButton.style.fontSize = '20px';
   powerButton.style.letterSpacing = '0';
   powerButton.style.background =
     'radial-gradient(circle at 36% 28%, rgba(182, 255, 233, 0.84), rgba(36, 122, 91, 0.68) 72%, rgba(15, 66, 46, 0.8) 100%)';
@@ -1009,13 +973,13 @@ function createTouchControls(app: HTMLElement): {
 
   const fireButton = document.createElement('button');
   fireButton.textContent = '◎';
-  fireButton.style.width = '72px';
-  fireButton.style.height = '72px';
+  fireButton.style.width = '64px';
+  fireButton.style.height = '64px';
   fireButton.style.borderRadius = '999px';
   fireButton.style.border = '1px solid rgba(255, 195, 128, 0.95)';
   fireButton.style.color = '#fff3e3';
   fireButton.style.fontWeight = '700';
-  fireButton.style.fontSize = '26px';
+  fireButton.style.fontSize = '22px';
   fireButton.style.letterSpacing = '0';
   fireButton.style.textShadow = '0 0 8px rgba(255, 206, 140, 0.45)';
   fireButton.style.background =
@@ -1284,35 +1248,20 @@ function createSettingsPage(
 }
 
 function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): void {
-  const starsMidA = scene.getObjectByName('bgStarsMidA');
-  const starsMidB = scene.getObjectByName('bgStarsMidB');
-  const starsFarA = scene.getObjectByName('bgStarsFarA');
-  const starsFarB = scene.getObjectByName('bgStarsFarB');
-  const starsNearA = scene.getObjectByName('bgStarsNearA');
-  const starsNearB = scene.getObjectByName('bgStarsNearB');
+  const stars = scene.getObjectByName('bgStars');
   const haze = scene.getObjectByName('bgHaze');
   const hazeFar = scene.getObjectByName('bgHazeFar');
   const leftRail = scene.getObjectByName('leftRail');
   const rightRail = scene.getObjectByName('rightRail');
-  const starMidAMat = starsMidA instanceof THREE.Points ? starsMidA.material : null;
-  const starMidBMat = starsMidB instanceof THREE.Points ? starsMidB.material : null;
-  const starFarAMat = starsFarA instanceof THREE.Points ? starsFarA.material : null;
-  const starFarBMat = starsFarB instanceof THREE.Points ? starsFarB.material : null;
-  const starNearAMat = starsNearA instanceof THREE.Points ? starsNearA.material : null;
-  const starNearBMat = starsNearB instanceof THREE.Points ? starsNearB.material : null;
+  const starMat = stars instanceof THREE.Points ? stars.material : null;
   const hazeMat = haze instanceof THREE.Mesh ? haze.material : null;
   const hazeFarMat = hazeFar instanceof THREE.Mesh ? hazeFar.material : null;
   const leftMat = leftRail instanceof THREE.Mesh ? leftRail.material : null;
   const rightMat = rightRail instanceof THREE.Mesh ? rightRail.material : null;
 
   if (
-    !(starMidAMat instanceof THREE.PointsMaterial) ||
-    !(starMidBMat instanceof THREE.PointsMaterial) ||
+    !(starMat instanceof THREE.PointsMaterial) ||
     !(hazeMat instanceof THREE.MeshBasicMaterial) ||
-    !(starFarAMat instanceof THREE.PointsMaterial) ||
-    !(starFarBMat instanceof THREE.PointsMaterial) ||
-    !(starNearAMat instanceof THREE.PointsMaterial) ||
-    !(starNearBMat instanceof THREE.PointsMaterial) ||
     !(hazeFarMat instanceof THREE.MeshBasicMaterial)
   ) {
     return;
@@ -1320,18 +1269,8 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
 
   if (preset === 'sunsetGrid') {
     scene.background = new THREE.Color(0x120b14);
-    starMidAMat.color.setHex(0xffb08a);
-    starMidBMat.color.setHex(0xffb08a);
-    starMidAMat.opacity = 0.72;
-    starMidBMat.opacity = 0.72;
-    starFarAMat.color.setHex(0xf59872);
-    starFarBMat.color.setHex(0xf59872);
-    starFarAMat.opacity = 0.46;
-    starFarBMat.opacity = 0.46;
-    starNearAMat.color.setHex(0xffc8a4);
-    starNearBMat.color.setHex(0xffc8a4);
-    starNearAMat.opacity = 0.62;
-    starNearBMat.opacity = 0.62;
+    starMat.color.setHex(0xffb08a);
+    starMat.opacity = 0.72;
     hazeMat.color.setHex(0x4f2035);
     hazeMat.opacity = 0.3;
     hazeFarMat.color.setHex(0x3a1831);
@@ -1351,18 +1290,8 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
 
   if (preset === 'deepVoid') {
     scene.background = new THREE.Color(0x02040a);
-    starMidAMat.color.setHex(0x88b9ff);
-    starMidBMat.color.setHex(0x88b9ff);
-    starMidAMat.opacity = 0.64;
-    starMidBMat.opacity = 0.64;
-    starFarAMat.color.setHex(0x608fd0);
-    starFarBMat.color.setHex(0x608fd0);
-    starFarAMat.opacity = 0.42;
-    starFarBMat.opacity = 0.42;
-    starNearAMat.color.setHex(0x9ec7ff);
-    starNearBMat.color.setHex(0x9ec7ff);
-    starNearAMat.opacity = 0.55;
-    starNearBMat.opacity = 0.55;
+    starMat.color.setHex(0x88b9ff);
+    starMat.opacity = 0.64;
     hazeMat.color.setHex(0x0f1d42);
     hazeMat.opacity = 0.18;
     hazeFarMat.color.setHex(0x0a1331);
@@ -1381,18 +1310,8 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
   }
 
   scene.background = new THREE.Color(0x05080d);
-  starMidAMat.color.setHex(0x78e2ff);
-  starMidBMat.color.setHex(0x78e2ff);
-  starMidAMat.opacity = 0.8;
-  starMidBMat.opacity = 0.8;
-  starFarAMat.color.setHex(0x5ab5dd);
-  starFarBMat.color.setHex(0x5ab5dd);
-  starFarAMat.opacity = 0.5;
-  starFarBMat.opacity = 0.5;
-  starNearAMat.color.setHex(0x9cecff);
-  starNearBMat.color.setHex(0x9cecff);
-  starNearAMat.opacity = 0.65;
-  starNearBMat.opacity = 0.65;
+  starMat.color.setHex(0x78e2ff);
+  starMat.opacity = 0.8;
   hazeMat.color.setHex(0x113247);
   hazeMat.opacity = 0.28;
   hazeFarMat.color.setHex(0x0d2842);
