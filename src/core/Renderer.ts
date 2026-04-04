@@ -174,7 +174,8 @@ export class Renderer {
       stars.position.x = cameraX * -0.08;
       stars.rotation.z = t * 0.012;
       if (stars instanceof THREE.Points && stars.material instanceof THREE.PointsMaterial) {
-        stars.material.opacity = 0.68 + thrill * 0.2;
+        stars.material.opacity = 0.86 + thrill * 0.12;
+        stars.material.size = 0.05 + thrill * 0.015;
       }
     }
 

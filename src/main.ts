@@ -77,7 +77,7 @@ function createBackdrop(scene: THREE.Scene): void {
   stars.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
   const points = new THREE.Points(
     stars,
-    new THREE.PointsMaterial({ color: 0x78e2ff, size: 0.035, transparent: true, opacity: 0.8 })
+    new THREE.PointsMaterial({ color: 0x86e9ff, size: 0.05, transparent: true, opacity: 0.95 })
   );
   points.name = 'bgStars';
   scene.add(points);
@@ -1602,17 +1602,6 @@ function createIntroPage(
   intro.style.backdropFilter = 'blur(5px)';
   intro.style.overflow = 'hidden';
   app.appendChild(intro);
-
-  const introStars = document.createElement('div');
-  introStars.style.position = 'absolute';
-  introStars.style.inset = '-20%';
-  introStars.style.backgroundImage =
-    'radial-gradient(circle, rgba(209, 240, 255, 0.9) 0 1px, rgba(255,255,255,0) 1.7px)';
-  introStars.style.backgroundSize = '18px 18px';
-  introStars.style.opacity = '0.34';
-  introStars.style.animation = 'introStarDrift 22s linear infinite';
-  introStars.style.pointerEvents = 'none';
-  intro.appendChild(introStars);
 
   const parallaxA = document.createElement('div');
   parallaxA.style.position = 'absolute';
