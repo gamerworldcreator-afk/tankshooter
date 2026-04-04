@@ -112,8 +112,6 @@ function createBackdrop(scene: THREE.Scene): void {
   makeDualStarLayer('bgStarsFar', 220, 44, -16, 0.03, 0.48, 22);
   makeDualStarLayer('bgStarsMid', 260, 40, -12, 0.038, 0.76, 22);
   makeDualStarLayer('bgStarsNear', 180, 34, -8, 0.05, 0.66, 22);
-  makeStars('bgDustFar', 140, 40, -10, 0.12, 0.08, 0x7ec4ff);
-  makeStars('bgDustNear', 110, 34, -5.5, 0.18, 0.1, 0xffb98d);
 
   const hazeFar = new THREE.Mesh(
     new THREE.PlaneGeometry(44, 28),
@@ -139,39 +137,6 @@ function createBackdrop(scene: THREE.Scene): void {
   haze.position.z = -6.8;
   scene.add(haze);
 
-  const planet = new THREE.Mesh(
-    new THREE.CircleGeometry(2.8, 42),
-    new THREE.MeshBasicMaterial({ color: 0x2f84b8, transparent: true, opacity: 0.16 })
-  );
-  planet.name = 'bgPlanet';
-  planet.position.set(5.7, 3.5, -9.2);
-  scene.add(planet);
-
-  const planetGlow = new THREE.Mesh(
-    new THREE.CircleGeometry(3.2, 42),
-    new THREE.MeshBasicMaterial({ color: 0x81d7ff, transparent: true, opacity: 0.08 })
-  );
-  planetGlow.name = 'bgPlanetGlow';
-  planetGlow.position.set(5.7, 3.5, -9.4);
-  scene.add(planetGlow);
-
-  const strips = new THREE.Group();
-  strips.name = 'bgMotionStrips';
-  for (let i = 0; i < 16; i += 1) {
-    const strip = new THREE.Mesh(
-      new THREE.PlaneGeometry(18, 0.11),
-      new THREE.MeshBasicMaterial({
-        color: i % 2 === 0 ? 0x4ba1d9 : 0x8a4bd9,
-        transparent: true,
-        opacity: 0.08
-      })
-    );
-    strip.position.set(0, -9 + i * 1.2, -3.4);
-    strip.userData.baseY = strip.position.y;
-    strips.add(strip);
-  }
-  scene.add(strips);
-
   const starsMidA = scene.getObjectByName('bgStarsMidA');
   const starsMidB = scene.getObjectByName('bgStarsMidB');
   if (starsMidA instanceof THREE.Points && starsMidA.material instanceof THREE.PointsMaterial) {
@@ -192,9 +157,9 @@ function createBackdrop(scene: THREE.Scene): void {
   const railCtx = railCanvas.getContext('2d');
   if (railCtx) {
     const grad = railCtx.createLinearGradient(0, 0, 0, railCanvas.height);
-    grad.addColorStop(0, '#f94f95');
-    grad.addColorStop(0.5, '#ff8a00');
-    grad.addColorStop(1, '#19c7ff');
+    grad.addColorStop(0, '#4de0ff');
+    grad.addColorStop(0.5, '#26b2ff');
+    grad.addColorStop(1, '#4fffb0');
     railCtx.fillStyle = grad;
     railCtx.fillRect(0, 0, railCanvas.width, railCanvas.height);
   }
@@ -813,7 +778,7 @@ function bindInput(
   });
 
   let movePointerId: number | null = null;
-  const maxTravel = 28;
+  const maxTravel = 24;
   const deadZone = 0.09;
 
   const updateMoveAxis = (clientX: number, clientY: number): void => {
@@ -972,8 +937,8 @@ function createTouchControls(app: HTMLElement): {
   app.appendChild(controlsRoot);
 
   const movePad = document.createElement('div');
-  movePad.style.width = '96px';
-  movePad.style.height = '96px';
+  movePad.style.width = '84px';
+  movePad.style.height = '84px';
   movePad.style.borderRadius = '999px';
   movePad.style.border = '1px solid rgba(118, 231, 255, 0.8)';
   movePad.style.background =
@@ -987,8 +952,8 @@ function createTouchControls(app: HTMLElement): {
   controlsRoot.appendChild(movePad);
 
   const stick = document.createElement('div');
-  stick.style.width = '40px';
-  stick.style.height = '40px';
+  stick.style.width = '32px';
+  stick.style.height = '32px';
   stick.style.borderRadius = '999px';
   stick.style.border = '1px solid rgba(190, 248, 255, 0.96)';
   stick.style.background =
@@ -1006,13 +971,13 @@ function createTouchControls(app: HTMLElement): {
 
   const pulseButton = document.createElement('button');
   pulseButton.textContent = 'PULSE';
-  pulseButton.style.width = '76px';
-  pulseButton.style.height = '76px';
+  pulseButton.style.width = '56px';
+  pulseButton.style.height = '56px';
   pulseButton.style.borderRadius = '999px';
   pulseButton.style.border = '1px solid rgba(132, 236, 255, 0.9)';
   pulseButton.style.color = '#dff7ff';
   pulseButton.style.fontWeight = '700';
-  pulseButton.style.fontSize = '12px';
+  pulseButton.style.fontSize = '10px';
   pulseButton.style.letterSpacing = '0.08em';
   pulseButton.style.background =
     'radial-gradient(circle at 35% 30%, rgba(170, 241, 255, 0.58), rgba(26, 86, 114, 0.55) 72%)';
@@ -1025,13 +990,13 @@ function createTouchControls(app: HTMLElement): {
 
   const powerButton = document.createElement('button');
   powerButton.textContent = '⚡';
-  powerButton.style.width = '74px';
-  powerButton.style.height = '74px';
+  powerButton.style.width = '58px';
+  powerButton.style.height = '58px';
   powerButton.style.borderRadius = '999px';
   powerButton.style.border = '1px solid rgba(157, 255, 219, 0.94)';
   powerButton.style.color = '#eafff6';
   powerButton.style.fontWeight = '800';
-  powerButton.style.fontSize = '28px';
+  powerButton.style.fontSize = '22px';
   powerButton.style.letterSpacing = '0';
   powerButton.style.background =
     'radial-gradient(circle at 36% 28%, rgba(182, 255, 233, 0.84), rgba(36, 122, 91, 0.68) 72%, rgba(15, 66, 46, 0.8) 100%)';
@@ -1044,13 +1009,13 @@ function createTouchControls(app: HTMLElement): {
 
   const fireButton = document.createElement('button');
   fireButton.textContent = '◎';
-  fireButton.style.width = '88px';
-  fireButton.style.height = '88px';
+  fireButton.style.width = '72px';
+  fireButton.style.height = '72px';
   fireButton.style.borderRadius = '999px';
   fireButton.style.border = '1px solid rgba(255, 195, 128, 0.95)';
   fireButton.style.color = '#fff3e3';
   fireButton.style.fontWeight = '700';
-  fireButton.style.fontSize = '32px';
+  fireButton.style.fontSize = '26px';
   fireButton.style.letterSpacing = '0';
   fireButton.style.textShadow = '0 0 8px rgba(255, 206, 140, 0.45)';
   fireButton.style.background =
@@ -1327,11 +1292,6 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
   const starsNearB = scene.getObjectByName('bgStarsNearB');
   const haze = scene.getObjectByName('bgHaze');
   const hazeFar = scene.getObjectByName('bgHazeFar');
-  const dustFar = scene.getObjectByName('bgDustFar');
-  const dustNear = scene.getObjectByName('bgDustNear');
-  const planet = scene.getObjectByName('bgPlanet');
-  const planetGlow = scene.getObjectByName('bgPlanetGlow');
-  const strips = scene.getObjectByName('bgMotionStrips');
   const leftRail = scene.getObjectByName('leftRail');
   const rightRail = scene.getObjectByName('rightRail');
   const starMidAMat = starsMidA instanceof THREE.Points ? starsMidA.material : null;
@@ -1342,10 +1302,6 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
   const starNearBMat = starsNearB instanceof THREE.Points ? starsNearB.material : null;
   const hazeMat = haze instanceof THREE.Mesh ? haze.material : null;
   const hazeFarMat = hazeFar instanceof THREE.Mesh ? hazeFar.material : null;
-  const dustFarMat = dustFar instanceof THREE.Points ? dustFar.material : null;
-  const dustNearMat = dustNear instanceof THREE.Points ? dustNear.material : null;
-  const planetMat = planet instanceof THREE.Mesh ? planet.material : null;
-  const planetGlowMat = planetGlow instanceof THREE.Mesh ? planetGlow.material : null;
   const leftMat = leftRail instanceof THREE.Mesh ? leftRail.material : null;
   const rightMat = rightRail instanceof THREE.Mesh ? rightRail.material : null;
 
@@ -1357,11 +1313,7 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
     !(starFarBMat instanceof THREE.PointsMaterial) ||
     !(starNearAMat instanceof THREE.PointsMaterial) ||
     !(starNearBMat instanceof THREE.PointsMaterial) ||
-    !(hazeFarMat instanceof THREE.MeshBasicMaterial) ||
-    !(dustFarMat instanceof THREE.PointsMaterial) ||
-    !(dustNearMat instanceof THREE.PointsMaterial) ||
-    !(planetMat instanceof THREE.MeshBasicMaterial) ||
-    !(planetGlowMat instanceof THREE.MeshBasicMaterial)
+    !(hazeFarMat instanceof THREE.MeshBasicMaterial)
   ) {
     return;
   }
@@ -1384,28 +1336,12 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
     hazeMat.opacity = 0.3;
     hazeFarMat.color.setHex(0x3a1831);
     hazeFarMat.opacity = 0.27;
-    dustFarMat.color.setHex(0xffb58f);
-    dustNearMat.color.setHex(0xffd1b0);
-    dustFarMat.opacity = 0.1;
-    dustNearMat.opacity = 0.14;
-    planetMat.color.setHex(0xff8f74);
-    planetMat.opacity = 0.16;
-    planetGlowMat.color.setHex(0xffcf9f);
-    planetGlowMat.opacity = 0.08;
-    if (strips instanceof THREE.Group) {
-      for (const child of strips.children) {
-        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshBasicMaterial) {
-          child.material.color.setHex(0xff8a65);
-          child.material.opacity = 0.08;
-        }
-      }
-    }
     if (leftMat instanceof THREE.MeshBasicMaterial) {
-      leftMat.color.setHex(0xff9a75);
+      leftMat.color.setHex(0x58d7ff);
       leftMat.opacity = 0.88;
     }
     if (rightMat instanceof THREE.MeshBasicMaterial) {
-      rightMat.color.setHex(0xff9a75);
+      rightMat.color.setHex(0x58d7ff);
       rightMat.opacity = 0.88;
     }
     document.body.style.background =
@@ -1431,28 +1367,12 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
     hazeMat.opacity = 0.18;
     hazeFarMat.color.setHex(0x0a1331);
     hazeFarMat.opacity = 0.2;
-    dustFarMat.color.setHex(0x82aef7);
-    dustNearMat.color.setHex(0x9ac4ff);
-    dustFarMat.opacity = 0.08;
-    dustNearMat.opacity = 0.12;
-    planetMat.color.setHex(0x6b8cff);
-    planetMat.opacity = 0.12;
-    planetGlowMat.color.setHex(0x9bb6ff);
-    planetGlowMat.opacity = 0.07;
-    if (strips instanceof THREE.Group) {
-      for (const child of strips.children) {
-        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshBasicMaterial) {
-          child.material.color.setHex(0x5f7ce0);
-          child.material.opacity = 0.07;
-        }
-      }
-    }
     if (leftMat instanceof THREE.MeshBasicMaterial) {
-      leftMat.color.setHex(0x7fb3ff);
+      leftMat.color.setHex(0x87b8ff);
       leftMat.opacity = 0.86;
     }
     if (rightMat instanceof THREE.MeshBasicMaterial) {
-      rightMat.color.setHex(0x7fb3ff);
+      rightMat.color.setHex(0x87b8ff);
       rightMat.opacity = 0.86;
     }
     document.body.style.background =
@@ -1477,28 +1397,12 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
   hazeMat.opacity = 0.28;
   hazeFarMat.color.setHex(0x0d2842);
   hazeFarMat.opacity = 0.24;
-  dustFarMat.color.setHex(0x86cfff);
-  dustNearMat.color.setHex(0xffbf9e);
-  dustFarMat.opacity = 0.08;
-  dustNearMat.opacity = 0.1;
-  planetMat.color.setHex(0x3898d3);
-  planetMat.opacity = 0.14;
-  planetGlowMat.color.setHex(0x7fd9ff);
-  planetGlowMat.opacity = 0.08;
-  if (strips instanceof THREE.Group) {
-    for (const child of strips.children) {
-      if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshBasicMaterial) {
-        child.material.color.setHex(0x48a1d8);
-        child.material.opacity = 0.08;
-      }
-    }
-  }
   if (leftMat instanceof THREE.MeshBasicMaterial) {
-    leftMat.color.setHex(0x8ce8ff);
+    leftMat.color.setHex(0x66e7d2);
     leftMat.opacity = 0.86;
   }
   if (rightMat instanceof THREE.MeshBasicMaterial) {
-    rightMat.color.setHex(0x8ce8ff);
+    rightMat.color.setHex(0x66e7d2);
     rightMat.opacity = 0.86;
   }
   document.body.style.background =

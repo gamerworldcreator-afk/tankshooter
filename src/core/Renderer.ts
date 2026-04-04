@@ -154,17 +154,6 @@ export class Renderer {
     animateDual('bgStarsMid', 1.8, -0.1, 0.008);
     animateDual('bgStarsNear', 3.1, -0.16, -0.013);
 
-    const dustFar = this.scene.getObjectByName('bgDustFar');
-    if (dustFar) {
-      dustFar.position.y = Math.sin(t * 0.55) * 1.2;
-      dustFar.position.x = cameraX * -0.12 + Math.cos(t * 0.22) * 0.5;
-    }
-    const dustNear = this.scene.getObjectByName('bgDustNear');
-    if (dustNear) {
-      dustNear.position.y = Math.sin(t * 0.95) * 1.6;
-      dustNear.position.x = cameraX * -0.2 + Math.sin(t * 0.44) * 0.68;
-    }
-
     const hazeFar = this.scene.getObjectByName('bgHazeFar');
     if (hazeFar) {
       hazeFar.position.x = Math.sin(t * 0.12) * 0.95 + cameraX * -0.04;
@@ -176,35 +165,6 @@ export class Renderer {
       haze.position.x = Math.cos(t * 0.24) * 0.68 + cameraX * -0.08;
       haze.position.y = Math.sin(t * 0.28) * 0.4 + cameraY * -0.04;
       haze.rotation.z = Math.cos(t * 0.11) * 0.05;
-    }
-
-    const planet = this.scene.getObjectByName('bgPlanet');
-    if (planet) {
-      planet.position.x = 5.7 + cameraX * -0.03 + Math.sin(t * 0.07) * 0.25;
-      planet.position.y = 3.5 + cameraY * -0.02 + Math.cos(t * 0.09) * 0.18;
-      planet.rotation.z = t * 0.02;
-    }
-    const planetGlow = this.scene.getObjectByName('bgPlanetGlow');
-    if (planetGlow) {
-      planetGlow.position.x = 5.7 + cameraX * -0.03 + Math.sin(t * 0.07) * 0.3;
-      planetGlow.position.y = 3.5 + cameraY * -0.02 + Math.cos(t * 0.09) * 0.2;
-      planetGlow.rotation.z = -t * 0.016;
-    }
-
-    const strips = this.scene.getObjectByName('bgMotionStrips');
-    if (strips instanceof THREE.Group) {
-      const loopRange = 20;
-      for (let i = 0; i < strips.children.length; i += 1) {
-        const child = strips.children[i];
-        if (!(child instanceof THREE.Mesh)) {
-          continue;
-        }
-        const baseY = Number(child.userData.baseY ?? 0);
-        const offset = (t * (1.9 + i * 0.05)) % loopRange;
-        child.position.y = -10 + ((baseY + offset + loopRange) % loopRange);
-        child.position.x = Math.sin(t * 0.6 + i * 0.2) * 0.2 + cameraX * -0.03;
-        child.rotation.z = Math.sin(t * 0.35 + i * 0.5) * 0.012;
-      }
     }
   }
 
