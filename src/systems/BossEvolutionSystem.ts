@@ -41,12 +41,20 @@ export class BossEvolutionSystem implements System {
       Math.sin(t * (1.18 + stage * 0.06) + 1.4) * range * 0.32;
     transform.x = THREE.MathUtils.clamp(pattern, world.arena.minX + 1.2, world.arena.maxX - 1.2);
     transform.y = world.arena.maxY - 1.25 + Math.sin(t * (0.8 + stage * 0.03)) * (0.22 + stage * 0.03);
-    const pulse = Math.sin(t * (2.1 + stage * 0.13));
-    const stretch = Math.cos(t * (1.2 + stage * 0.08));
-    const base = stage >= 5 ? 1.12 : stage >= 3 ? 1.02 : 1;
-    transform.scaleX = base + pulse * 0.11;
-    transform.scaleY = base - pulse * 0.09 + stretch * 0.04;
-    transform.scaleZ = base + stretch * 0.08;
+    if (stage < 3) {
+      transform.scaleX = 1;
+      transform.scaleY = 1;
+      transform.scaleZ = 1;
+      return;
+    }
+
+    const pulse = Math.sin(t * (1.8 + stage * 0.1));
+    const breathe = Math.cos(t * (1.15 + stage * 0.06));
+    const base = stage >= 5 ? 1.12 : stage === 4 ? 1.06 : 1.02;
+    const uniform = base + pulse * 0.045;
+    transform.scaleX = uniform + breathe * 0.016;
+    transform.scaleY = uniform - breathe * 0.014;
+    transform.scaleZ = uniform + pulse * 0.02;
   }
 
   private updateShieldVisual(world: World, enabled: boolean): void {

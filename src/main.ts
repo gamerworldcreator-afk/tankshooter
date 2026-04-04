@@ -72,7 +72,8 @@ function createBackdrop(scene: THREE.Scene): void {
     spread: number,
     zBase: number,
     size: number,
-    opacity: number
+    opacity: number,
+    color: number
   ): THREE.Points => {
     const stars = new THREE.BufferGeometry();
     const vertices = new Float32Array(count * 3);
@@ -84,7 +85,7 @@ function createBackdrop(scene: THREE.Scene): void {
     stars.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
     const points = new THREE.Points(
       stars,
-      new THREE.PointsMaterial({ color: 0x78e2ff, size, transparent: true, opacity })
+      new THREE.PointsMaterial({ color, size, transparent: true, opacity })
     );
     points.name = name;
     scene.add(points);
@@ -100,8 +101,8 @@ function createBackdrop(scene: THREE.Scene): void {
     opacity: number,
     gapY: number
   ): void => {
-    const layerA = makeStars(`${baseName}A`, count, spread, zBase, size, opacity);
-    const layerB = makeStars(`${baseName}B`, count, spread, zBase, size, opacity);
+    const layerA = makeStars(`${baseName}A`, count, spread, zBase, size, opacity, 0x78e2ff);
+    const layerB = makeStars(`${baseName}B`, count, spread, zBase, size, opacity, 0x78e2ff);
     layerA.userData.parallaxGapY = gapY;
     layerB.userData.parallaxGapY = gapY;
     layerA.position.y = 0;
@@ -111,6 +112,8 @@ function createBackdrop(scene: THREE.Scene): void {
   makeDualStarLayer('bgStarsFar', 220, 44, -16, 0.03, 0.48, 22);
   makeDualStarLayer('bgStarsMid', 260, 40, -12, 0.038, 0.76, 22);
   makeDualStarLayer('bgStarsNear', 180, 34, -8, 0.05, 0.66, 22);
+  makeStars('bgDustFar', 140, 40, -10, 0.12, 0.08, 0x7ec4ff);
+  makeStars('bgDustNear', 110, 34, -5.5, 0.18, 0.1, 0xffb98d);
 
   const hazeFar = new THREE.Mesh(
     new THREE.PlaneGeometry(44, 28),
@@ -136,6 +139,39 @@ function createBackdrop(scene: THREE.Scene): void {
   haze.position.z = -6.8;
   scene.add(haze);
 
+  const planet = new THREE.Mesh(
+    new THREE.CircleGeometry(2.8, 42),
+    new THREE.MeshBasicMaterial({ color: 0x2f84b8, transparent: true, opacity: 0.16 })
+  );
+  planet.name = 'bgPlanet';
+  planet.position.set(5.7, 3.5, -9.2);
+  scene.add(planet);
+
+  const planetGlow = new THREE.Mesh(
+    new THREE.CircleGeometry(3.2, 42),
+    new THREE.MeshBasicMaterial({ color: 0x81d7ff, transparent: true, opacity: 0.08 })
+  );
+  planetGlow.name = 'bgPlanetGlow';
+  planetGlow.position.set(5.7, 3.5, -9.4);
+  scene.add(planetGlow);
+
+  const strips = new THREE.Group();
+  strips.name = 'bgMotionStrips';
+  for (let i = 0; i < 16; i += 1) {
+    const strip = new THREE.Mesh(
+      new THREE.PlaneGeometry(18, 0.11),
+      new THREE.MeshBasicMaterial({
+        color: i % 2 === 0 ? 0x4ba1d9 : 0x8a4bd9,
+        transparent: true,
+        opacity: 0.08
+      })
+    );
+    strip.position.set(0, -9 + i * 1.2, -3.4);
+    strip.userData.baseY = strip.position.y;
+    strips.add(strip);
+  }
+  scene.add(strips);
+
   const starsMidA = scene.getObjectByName('bgStarsMidA');
   const starsMidB = scene.getObjectByName('bgStarsMidB');
   if (starsMidA instanceof THREE.Points && starsMidA.material instanceof THREE.PointsMaterial) {
@@ -150,17 +186,31 @@ function createBackdrop(scene: THREE.Scene): void {
   key.position.set(0, 1, 1);
   scene.add(ambient, key);
 
-  const railGeometry = new THREE.PlaneGeometry(0.28, 20.5);
+  const railCanvas = document.createElement('canvas');
+  railCanvas.width = 16;
+  railCanvas.height = 512;
+  const railCtx = railCanvas.getContext('2d');
+  if (railCtx) {
+    const grad = railCtx.createLinearGradient(0, 0, 0, railCanvas.height);
+    grad.addColorStop(0, '#f94f95');
+    grad.addColorStop(0.5, '#ff8a00');
+    grad.addColorStop(1, '#19c7ff');
+    railCtx.fillStyle = grad;
+    railCtx.fillRect(0, 0, railCanvas.width, railCanvas.height);
+  }
+  const railTexture = new THREE.CanvasTexture(railCanvas);
+  railTexture.colorSpace = THREE.SRGBColorSpace;
+  const railGeometry = new THREE.PlaneGeometry(0.11, 20.5);
   const leftRail = new THREE.Mesh(
     railGeometry,
-    new THREE.MeshBasicMaterial({ color: 0x8ce8ff, transparent: true, opacity: 0.58 })
+    new THREE.MeshBasicMaterial({ map: railTexture, transparent: true, opacity: 0.82 })
   );
   leftRail.name = 'leftRail';
   leftRail.position.set(-8.22, 0, -0.2);
   leftRail.layers.enable(BLOOM_LAYER);
   leftRail.onBeforeRender = (_r, _s, _c, _g, material) => {
     if (material instanceof THREE.MeshBasicMaterial) {
-      material.opacity = 0.42 + Math.sin(performance.now() * 0.004) * 0.18;
+      material.opacity = 0.72 + Math.sin(performance.now() * 0.004) * 0.12;
     }
   };
 
@@ -181,8 +231,10 @@ function syncArenaBounds(world: World, renderer: Renderer): void {
   world.arena.maxY = camera.top - topMargin;
 
   const tanker = world.transforms.get(world.tankerEntity);
+  const tankerHitbox = world.hitboxes.get(world.tankerEntity);
+  const tankerHalfW = tankerHitbox ? tankerHitbox.w * 0.5 : 0.45;
   if (tanker) {
-    tanker.x = THREE.MathUtils.clamp(tanker.x, world.arena.minX, world.arena.maxX);
+    tanker.x = THREE.MathUtils.clamp(tanker.x, world.arena.minX + tankerHalfW, world.arena.maxX - tankerHalfW);
     tanker.y = world.arena.minY + 1.05;
   }
   const pulseWave = world.getEntitiesByRole('pulseWave', false)[0];
@@ -200,10 +252,10 @@ function syncArenaBounds(world: World, renderer: Renderer): void {
   const leftRail = renderer.scene.getObjectByName('leftRail');
   const rightRail = renderer.scene.getObjectByName('rightRail');
   if (leftRail) {
-    leftRail.position.x = world.arena.minX - 0.12;
+    leftRail.position.x = world.arena.minX;
   }
   if (rightRail) {
-    rightRail.position.x = world.arena.maxX + 0.12;
+    rightRail.position.x = world.arena.maxX;
   }
 }
 
@@ -504,42 +556,49 @@ function createPooledEntities(world: World, scene: THREE.Scene): void {
     world.addComponent(e, { type: 'Health', current: 24, max: 24, regenRate: 0 });
     world.addComponent(e, { type: 'Poolable', poolKey: 'obstacle', active: false });
     const geometryOptions = [
-      new THREE.DodecahedronGeometry(0.42),
-      new THREE.OctahedronGeometry(0.47),
-      new THREE.IcosahedronGeometry(0.44),
-      new THREE.TetrahedronGeometry(0.5)
+      new THREE.IcosahedronGeometry(0.46, 1),
+      new THREE.OctahedronGeometry(0.49, 1),
+      new THREE.DodecahedronGeometry(0.45, 0)
     ];
     const mesh = new THREE.Mesh(
       geometryOptions[i % geometryOptions.length],
       new THREE.MeshStandardMaterial({
-        color: 0x8fb9d1,
-        emissive: 0x1a2d3d,
-        emissiveIntensity: 0.6,
-        roughness: 0.45,
-        metalness: 0.52
+        color: 0x9fcceb,
+        emissive: 0x1a3348,
+        emissiveIntensity: 0.68,
+        roughness: 0.32,
+        metalness: 0.74
       })
     );
-    if (i % 2 === 0) {
-      const fin = new THREE.Mesh(
-        new THREE.ConeGeometry(0.08, 0.46, 6),
-        new THREE.MeshStandardMaterial({ color: 0xa6d4eb, emissive: 0x264765, emissiveIntensity: 0.6 })
+    const ringOuter = new THREE.Mesh(
+      new THREE.TorusGeometry(0.38, 0.035, 10, 42),
+      new THREE.MeshBasicMaterial({ color: 0x91e8ff, transparent: true, opacity: 0.6 })
+    );
+    ringOuter.rotation.set(Math.PI * 0.5, 0, i % 2 === 0 ? Math.PI * 0.2 : Math.PI * -0.2);
+    ringOuter.layers.enable(BLOOM_LAYER);
+    mesh.add(ringOuter);
+
+    const ringInner = new THREE.Mesh(
+      new THREE.TorusGeometry(0.26, 0.022, 8, 32),
+      new THREE.MeshBasicMaterial({ color: 0xc1ffff, transparent: true, opacity: 0.5 })
+    );
+    ringInner.rotation.set(Math.PI * 0.16, Math.PI * 0.35, Math.PI * 0.2);
+    ringInner.layers.enable(BLOOM_LAYER);
+    mesh.add(ringInner);
+
+    for (let s = 0; s < 4; s += 1) {
+      const spike = new THREE.Mesh(
+        new THREE.ConeGeometry(0.06, 0.28, 6),
+        new THREE.MeshStandardMaterial({ color: 0xd6f7ff, emissive: 0x28567c, emissiveIntensity: 0.66 })
       );
-      fin.position.set(0, 0.42, 0);
-      fin.rotation.x = Math.PI;
-      mesh.add(fin);
-    }
-    if (i % 3 === 0) {
-      const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(0.38, 0.03, 8, 24),
-        new THREE.MeshBasicMaterial({ color: 0x88d8ff, transparent: true, opacity: 0.6 })
-      );
-      ring.rotation.x = Math.PI * 0.5;
-      ring.layers.enable(BLOOM_LAYER);
-      mesh.add(ring);
+      const angle = (Math.PI * 2 * s) / 4;
+      spike.position.set(Math.cos(angle) * 0.28, Math.sin(angle) * 0.28, 0);
+      spike.rotation.z = angle + Math.PI / 2;
+      mesh.add(spike);
     }
     const coreGlow = new THREE.Mesh(
-      new THREE.SphereGeometry(0.09, 8, 8),
-      new THREE.MeshBasicMaterial({ color: 0x9bf5ff, transparent: true, opacity: 0.75 })
+      new THREE.SphereGeometry(0.11, 10, 10),
+      new THREE.MeshBasicMaterial({ color: 0xaef8ff, transparent: true, opacity: 0.82 })
     );
     coreGlow.layers.enable(BLOOM_LAYER);
     mesh.add(coreGlow);
@@ -882,7 +941,7 @@ function bindInput(
   const syncPowerButton = (state: ReturnType<typeof gameStore.getState>): void => {
     if (state.powerShotsRemaining > 0) {
       controls.powerButton.style.display = 'inline-flex';
-      controls.powerButton.textContent = `NOVA ${state.powerShotsRemaining}`;
+      controls.powerButton.textContent = `⚡${state.powerShotsRemaining}`;
     } else {
       controls.powerButton.style.display = 'none';
     }
@@ -965,15 +1024,15 @@ function createTouchControls(app: HTMLElement): {
   actionColumn.appendChild(pulseButton);
 
   const powerButton = document.createElement('button');
-  powerButton.textContent = 'NOVA';
+  powerButton.textContent = '⚡';
   powerButton.style.width = '74px';
   powerButton.style.height = '74px';
   powerButton.style.borderRadius = '999px';
   powerButton.style.border = '1px solid rgba(157, 255, 219, 0.94)';
   powerButton.style.color = '#eafff6';
   powerButton.style.fontWeight = '800';
-  powerButton.style.fontSize = '11px';
-  powerButton.style.letterSpacing = '0.06em';
+  powerButton.style.fontSize = '28px';
+  powerButton.style.letterSpacing = '0';
   powerButton.style.background =
     'radial-gradient(circle at 36% 28%, rgba(182, 255, 233, 0.84), rgba(36, 122, 91, 0.68) 72%, rgba(15, 66, 46, 0.8) 100%)';
   powerButton.style.backdropFilter = 'blur(10px)';
@@ -984,15 +1043,15 @@ function createTouchControls(app: HTMLElement): {
   actionColumn.appendChild(powerButton);
 
   const fireButton = document.createElement('button');
-  fireButton.textContent = 'BLAST';
+  fireButton.textContent = '◎';
   fireButton.style.width = '88px';
   fireButton.style.height = '88px';
   fireButton.style.borderRadius = '999px';
   fireButton.style.border = '1px solid rgba(255, 195, 128, 0.95)';
   fireButton.style.color = '#fff3e3';
   fireButton.style.fontWeight = '700';
-  fireButton.style.fontSize = '13px';
-  fireButton.style.letterSpacing = '0.11em';
+  fireButton.style.fontSize = '32px';
+  fireButton.style.letterSpacing = '0';
   fireButton.style.textShadow = '0 0 8px rgba(255, 206, 140, 0.45)';
   fireButton.style.background =
     'radial-gradient(circle at 34% 30%, rgba(255, 222, 167, 0.74), rgba(143, 62, 24, 0.66) 70%, rgba(79, 24, 12, 0.72) 100%)';
@@ -1268,6 +1327,11 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
   const starsNearB = scene.getObjectByName('bgStarsNearB');
   const haze = scene.getObjectByName('bgHaze');
   const hazeFar = scene.getObjectByName('bgHazeFar');
+  const dustFar = scene.getObjectByName('bgDustFar');
+  const dustNear = scene.getObjectByName('bgDustNear');
+  const planet = scene.getObjectByName('bgPlanet');
+  const planetGlow = scene.getObjectByName('bgPlanetGlow');
+  const strips = scene.getObjectByName('bgMotionStrips');
   const leftRail = scene.getObjectByName('leftRail');
   const rightRail = scene.getObjectByName('rightRail');
   const starMidAMat = starsMidA instanceof THREE.Points ? starsMidA.material : null;
@@ -1278,6 +1342,10 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
   const starNearBMat = starsNearB instanceof THREE.Points ? starsNearB.material : null;
   const hazeMat = haze instanceof THREE.Mesh ? haze.material : null;
   const hazeFarMat = hazeFar instanceof THREE.Mesh ? hazeFar.material : null;
+  const dustFarMat = dustFar instanceof THREE.Points ? dustFar.material : null;
+  const dustNearMat = dustNear instanceof THREE.Points ? dustNear.material : null;
+  const planetMat = planet instanceof THREE.Mesh ? planet.material : null;
+  const planetGlowMat = planetGlow instanceof THREE.Mesh ? planetGlow.material : null;
   const leftMat = leftRail instanceof THREE.Mesh ? leftRail.material : null;
   const rightMat = rightRail instanceof THREE.Mesh ? rightRail.material : null;
 
@@ -1289,7 +1357,11 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
     !(starFarBMat instanceof THREE.PointsMaterial) ||
     !(starNearAMat instanceof THREE.PointsMaterial) ||
     !(starNearBMat instanceof THREE.PointsMaterial) ||
-    !(hazeFarMat instanceof THREE.MeshBasicMaterial)
+    !(hazeFarMat instanceof THREE.MeshBasicMaterial) ||
+    !(dustFarMat instanceof THREE.PointsMaterial) ||
+    !(dustNearMat instanceof THREE.PointsMaterial) ||
+    !(planetMat instanceof THREE.MeshBasicMaterial) ||
+    !(planetGlowMat instanceof THREE.MeshBasicMaterial)
   ) {
     return;
   }
@@ -1312,13 +1384,29 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
     hazeMat.opacity = 0.3;
     hazeFarMat.color.setHex(0x3a1831);
     hazeFarMat.opacity = 0.27;
+    dustFarMat.color.setHex(0xffb58f);
+    dustNearMat.color.setHex(0xffd1b0);
+    dustFarMat.opacity = 0.1;
+    dustNearMat.opacity = 0.14;
+    planetMat.color.setHex(0xff8f74);
+    planetMat.opacity = 0.16;
+    planetGlowMat.color.setHex(0xffcf9f);
+    planetGlowMat.opacity = 0.08;
+    if (strips instanceof THREE.Group) {
+      for (const child of strips.children) {
+        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshBasicMaterial) {
+          child.material.color.setHex(0xff8a65);
+          child.material.opacity = 0.08;
+        }
+      }
+    }
     if (leftMat instanceof THREE.MeshBasicMaterial) {
       leftMat.color.setHex(0xff9a75);
-      leftMat.opacity = 0.42;
+      leftMat.opacity = 0.88;
     }
     if (rightMat instanceof THREE.MeshBasicMaterial) {
       rightMat.color.setHex(0xff9a75);
-      rightMat.opacity = 0.42;
+      rightMat.opacity = 0.88;
     }
     document.body.style.background =
       'radial-gradient(circle at 15% 20%, #6b2d45 0%, rgba(107, 45, 69, 0) 46%), radial-gradient(circle at 84% 78%, #6b4d2c 0%, rgba(107, 77, 44, 0) 42%), linear-gradient(170deg, #10080f 0%, #040406 70%, #0f1218 100%)';
@@ -1343,13 +1431,29 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
     hazeMat.opacity = 0.18;
     hazeFarMat.color.setHex(0x0a1331);
     hazeFarMat.opacity = 0.2;
+    dustFarMat.color.setHex(0x82aef7);
+    dustNearMat.color.setHex(0x9ac4ff);
+    dustFarMat.opacity = 0.08;
+    dustNearMat.opacity = 0.12;
+    planetMat.color.setHex(0x6b8cff);
+    planetMat.opacity = 0.12;
+    planetGlowMat.color.setHex(0x9bb6ff);
+    planetGlowMat.opacity = 0.07;
+    if (strips instanceof THREE.Group) {
+      for (const child of strips.children) {
+        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshBasicMaterial) {
+          child.material.color.setHex(0x5f7ce0);
+          child.material.opacity = 0.07;
+        }
+      }
+    }
     if (leftMat instanceof THREE.MeshBasicMaterial) {
       leftMat.color.setHex(0x7fb3ff);
-      leftMat.opacity = 0.32;
+      leftMat.opacity = 0.86;
     }
     if (rightMat instanceof THREE.MeshBasicMaterial) {
       rightMat.color.setHex(0x7fb3ff);
-      rightMat.opacity = 0.32;
+      rightMat.opacity = 0.86;
     }
     document.body.style.background =
       'radial-gradient(circle at 20% 12%, #102247 0%, rgba(16, 34, 71, 0) 45%), radial-gradient(circle at 82% 88%, #19264f 0%, rgba(25, 38, 79, 0) 46%), linear-gradient(160deg, #02040a 0%, #040914 62%, #0b1524 100%)';
@@ -1373,13 +1477,29 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
   hazeMat.opacity = 0.28;
   hazeFarMat.color.setHex(0x0d2842);
   hazeFarMat.opacity = 0.24;
+  dustFarMat.color.setHex(0x86cfff);
+  dustNearMat.color.setHex(0xffbf9e);
+  dustFarMat.opacity = 0.08;
+  dustNearMat.opacity = 0.1;
+  planetMat.color.setHex(0x3898d3);
+  planetMat.opacity = 0.14;
+  planetGlowMat.color.setHex(0x7fd9ff);
+  planetGlowMat.opacity = 0.08;
+  if (strips instanceof THREE.Group) {
+    for (const child of strips.children) {
+      if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshBasicMaterial) {
+        child.material.color.setHex(0x48a1d8);
+        child.material.opacity = 0.08;
+      }
+    }
+  }
   if (leftMat instanceof THREE.MeshBasicMaterial) {
     leftMat.color.setHex(0x8ce8ff);
-    leftMat.opacity = 0.38;
+    leftMat.opacity = 0.86;
   }
   if (rightMat instanceof THREE.MeshBasicMaterial) {
     rightMat.color.setHex(0x8ce8ff);
-    rightMat.opacity = 0.38;
+    rightMat.opacity = 0.86;
   }
   document.body.style.background =
     'radial-gradient(circle at 15% 20%, #1f4a5d 0%, rgba(31, 74, 93, 0) 45%), radial-gradient(circle at 80% 85%, #53341f 0%, rgba(83, 52, 31, 0) 42%), linear-gradient(165deg, #04090d 0%, #020406 65%, #070f15 100%)';

@@ -157,13 +157,13 @@ export class SpawnSystem implements System {
     }
 
     if (roll < 0.4) {
-      transform.scaleX = 0.92;
-      transform.scaleY = 1.2;
-      health.max = 30;
-      health.current = 30;
-      velocity.vx *= 1.8;
-      velocity.vy *= 1.25;
-      world.hitboxes.set(entity, { w: 0.7, h: 0.9 });
+      transform.scaleX = 0.96;
+      transform.scaleY = 0.96;
+      health.max = 34;
+      health.current = 34;
+      velocity.vx *= 1.55;
+      velocity.vy *= 1.15;
+      world.hitboxes.set(entity, { w: 0.72, h: 0.72 });
       world.obstacleSway.set(entity, { amplitude: 0.9, frequency: 6.2, phase: Math.random() * Math.PI * 2 });
       world.angularVelocity.set(entity, (Math.random() - 0.5) * 8);
       world.obstacleFireCooldownMs.set(entity, stage === 1 ? 3200 + Math.random() * 1800 : 1200 + Math.random() * 900);
@@ -172,13 +172,13 @@ export class SpawnSystem implements System {
     }
 
     if (roll < 0.75) {
-      transform.scaleX = 1.18;
-      transform.scaleY = 1.18;
-      health.max = 46;
-      health.current = 46;
+      transform.scaleX = 1.1;
+      transform.scaleY = 1.1;
+      health.max = 44;
+      health.current = 44;
       velocity.vx *= 0.55;
       velocity.vy *= 0.7;
-      world.hitboxes.set(entity, { w: 1.0, h: 1.0 });
+      world.hitboxes.set(entity, { w: 0.94, h: 0.94 });
       world.obstacleSway.set(entity, { amplitude: 0.35, frequency: 3.4, phase: Math.random() * Math.PI * 2 });
       world.angularVelocity.set(entity, (Math.random() - 0.5) * 2.5);
       world.obstacleFireCooldownMs.set(entity, stage === 1 ? 2800 + Math.random() * 1500 : 950 + Math.random() * 700);
@@ -188,11 +188,11 @@ export class SpawnSystem implements System {
 
     transform.scaleX = 0.72;
     transform.scaleY = 0.72;
-    health.max = 20;
-    health.current = 20;
+    health.max = 24;
+    health.current = 24;
     velocity.vx *= 2.2;
     velocity.vy *= 1.65;
-    world.hitboxes.set(entity, { w: 0.5, h: 0.5 });
+    world.hitboxes.set(entity, { w: 0.56, h: 0.56 });
     world.obstacleSway.set(entity, { amplitude: 1.4, frequency: 8.1, phase: Math.random() * Math.PI * 2 });
     world.angularVelocity.set(entity, (Math.random() - 0.5) * 12);
     world.obstacleFireCooldownMs.set(entity, stage === 1 ? 2200 + Math.random() * 1100 : 760 + Math.random() * 520);

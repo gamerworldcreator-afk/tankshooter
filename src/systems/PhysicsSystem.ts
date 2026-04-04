@@ -56,7 +56,8 @@ export class PhysicsSystem implements System {
       }
 
       if (entity === world.tankerEntity) {
-        transform.x = Math.max(world.arena.minX, Math.min(world.arena.maxX, transform.x));
+        const halfW = (world.hitboxes.get(entity)?.w ?? 0.9) * 0.5;
+        transform.x = Math.max(world.arena.minX + halfW, Math.min(world.arena.maxX - halfW, transform.x));
       }
 
       const role = world.roles.get(entity);
