@@ -125,11 +125,31 @@ export class Renderer {
 
       if (entity === this.world.tankerEntity) {
         const shield = render.mesh.getObjectByName('heroShield');
+        const ringA = render.mesh.getObjectByName('heroShieldRingA');
+        const ringB = render.mesh.getObjectByName('heroShieldRingB');
+        const active = this.world.heroShieldMs > 0;
+        const shieldPulse = 0.18 + Math.sin(this.world.timeMs * 0.012) * 0.12;
         if (shield instanceof THREE.Mesh) {
-          shield.visible = this.world.heroShieldMs > 0;
+          shield.visible = active;
+          shield.scale.setScalar(1 + Math.sin(this.world.timeMs * 0.01) * 0.03);
           if (shield.material instanceof THREE.MeshBasicMaterial) {
-            const pulse = 0.2 + Math.sin(this.world.timeMs * 0.01) * 0.1;
-            shield.material.opacity = this.world.heroShieldMs > 0 ? pulse : 0;
+            shield.material.opacity = active ? shieldPulse : 0;
+          }
+        }
+        if (ringA instanceof THREE.Mesh) {
+          ringA.visible = active;
+          ringA.rotation.z += 0.05;
+          ringA.rotation.x += 0.01;
+          if (ringA.material instanceof THREE.MeshBasicMaterial) {
+            ringA.material.opacity = active ? 0.34 + Math.sin(this.world.timeMs * 0.014) * 0.12 : 0;
+          }
+        }
+        if (ringB instanceof THREE.Mesh) {
+          ringB.visible = active;
+          ringB.rotation.z -= 0.06;
+          ringB.rotation.y += 0.012;
+          if (ringB.material instanceof THREE.MeshBasicMaterial) {
+            ringB.material.opacity = active ? 0.28 + Math.cos(this.world.timeMs * 0.013) * 0.1 : 0;
           }
         }
       }

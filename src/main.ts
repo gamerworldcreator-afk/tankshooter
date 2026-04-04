@@ -227,7 +227,23 @@ function buildEntities(world: World, scene: THREE.Scene): void {
   shield.name = 'heroShield';
   shield.visible = false;
   shield.layers.enable(BLOOM_LAYER);
-  tankerMesh.add(chassis, wingLeft, wingRight, core, shield);
+  const shieldRingA = new THREE.Mesh(
+    new THREE.TorusGeometry(0.88, 0.03, 10, 46),
+    new THREE.MeshBasicMaterial({ color: 0xa5f4ff, transparent: true, opacity: 0 })
+  );
+  shieldRingA.name = 'heroShieldRingA';
+  shieldRingA.visible = false;
+  shieldRingA.rotation.x = Math.PI * 0.5;
+  shieldRingA.layers.enable(BLOOM_LAYER);
+  const shieldRingB = new THREE.Mesh(
+    new THREE.TorusGeometry(0.68, 0.026, 10, 40),
+    new THREE.MeshBasicMaterial({ color: 0x7fd4ff, transparent: true, opacity: 0 })
+  );
+  shieldRingB.name = 'heroShieldRingB';
+  shieldRingB.visible = false;
+  shieldRingB.rotation.y = Math.PI * 0.5;
+  shieldRingB.layers.enable(BLOOM_LAYER);
+  tankerMesh.add(chassis, wingLeft, wingRight, core, shield, shieldRingA, shieldRingB);
   tankerMesh.layers.enable(BLOOM_LAYER);
   scene.add(tankerMesh);
   world.addComponent(tanker, { type: 'Render', mesh: tankerMesh, bloomLayer: BLOOM_LAYER });
@@ -1342,7 +1358,7 @@ function createSettingsPage(
     }
     const previewBgMap: Record<BackgroundPreset, string> = {
       nebula:
-        'radial-gradient(circle at 16% 20%, rgba(72, 226, 255, 0.52), rgba(72, 226, 255, 0) 44%), radial-gradient(circle at 82% 78%, rgba(255, 186, 110, 0.36), rgba(255, 186, 110, 0) 46%), linear-gradient(165deg, #071925 0%, #040d14 70%, #07121b 100%)',
+        'radial-gradient(circle at 18% 22%, rgba(85, 214, 255, 0.45), rgba(85, 214, 255, 0) 44%), radial-gradient(circle at 80% 78%, rgba(255, 164, 98, 0.32), rgba(255, 164, 98, 0) 46%), linear-gradient(165deg, #091823 0%, #060d15 70%, #091019 100%)',
       sunsetGrid:
         'radial-gradient(circle at 18% 22%, rgba(255, 149, 112, 0.48), rgba(255, 149, 112, 0) 44%), radial-gradient(circle at 80% 78%, rgba(255, 201, 122, 0.32), rgba(255, 201, 122, 0) 46%), linear-gradient(165deg, #220f17 0%, #140a10 70%, #111018 100%)',
       deepVoid:
@@ -1430,15 +1446,15 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
 
   scene.background = new THREE.Color(0x05080d);
   starMat.color.setHex(0x78e2ff);
-  starMat.opacity = 0.85;
-  sparkMat.color.setHex(0xffcf9d);
-  sparkMat.opacity = 0.18;
-  hazeMat.color.setHex(0x124a63);
-  hazeMat.opacity = 0.24;
-  hazeFarMat.color.setHex(0x0f3348);
-  hazeFarMat.opacity = 0.2;
+  starMat.opacity = 0.8;
+  sparkMat.color.setHex(0xffc79c);
+  sparkMat.opacity = 0.14;
+  hazeMat.color.setHex(0x113247);
+  hazeMat.opacity = 0.28;
+  hazeFarMat.color.setHex(0x0d2842);
+  hazeFarMat.opacity = 0.24;
   document.body.style.background =
-    'radial-gradient(circle at 16% 20%, #2a7aa0 0%, rgba(42, 122, 160, 0) 45%), radial-gradient(circle at 82% 84%, #7f4f2a 0%, rgba(127, 79, 42, 0) 42%), linear-gradient(165deg, #050d14 0%, #03070d 65%, #08131c 100%)';
+    'radial-gradient(circle at 15% 20%, #1f4a5d 0%, rgba(31, 74, 93, 0) 45%), radial-gradient(circle at 80% 85%, #53341f 0%, rgba(83, 52, 31, 0) 42%), linear-gradient(165deg, #04090d 0%, #020406 65%, #070f15 100%)';
 }
 
 function applyHeroAvatar(scene: THREE.Scene, preset: HeroAvatarPreset): void {
@@ -1582,7 +1598,7 @@ function createIntroPage(
   intro.style.display = 'grid';
   intro.style.placeItems = 'center';
   intro.style.background =
-    'radial-gradient(circle at 18% 22%, rgba(66, 214, 255, 0.18), rgba(8, 22, 34, 0.84) 48%), radial-gradient(circle at 82% 74%, rgba(255, 168, 92, 0.2), rgba(11, 16, 24, 0.92) 52%), linear-gradient(170deg, rgba(4, 12, 18, 0.96), rgba(5, 11, 17, 0.94))';
+    'radial-gradient(circle at 20% 25%, rgba(78, 196, 255, 0.14), rgba(10, 25, 36, 0.86) 50%), radial-gradient(circle at 80% 78%, rgba(255, 149, 92, 0.16), rgba(8, 15, 24, 0.94) 52%)';
   intro.style.backdropFilter = 'blur(5px)';
   intro.style.overflow = 'hidden';
   app.appendChild(intro);
