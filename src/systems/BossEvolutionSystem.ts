@@ -130,7 +130,10 @@ export class BossEvolutionSystem implements System {
     const period = world.currentStage >= 5 ? 160 : 240;
     if (this.beamTickMs <= 0) {
       this.beamTickMs = period;
-      if (Math.abs(tanker.x - boss.beamTargetX) < 0.95) {
+      const nearWall =
+        tanker.x <= world.arena.minX + 0.18 ||
+        tanker.x >= world.arena.maxX - 0.18;
+      if (!nearWall && Math.abs(tanker.x - boss.beamTargetX) < 0.95) {
         world.applyDamage(world.tankerEntity, world.currentStage >= 5 ? 6 : 4);
         world.feedbackQueue.push({ kind: 'hit', magnitude: 0.13, haptics: [25] });
       }

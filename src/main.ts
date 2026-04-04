@@ -46,7 +46,7 @@ async function bootstrap(): Promise<void> {
   sdkReportProgress(42);
 
   buildEntities(world, renderer.scene);
-  const settings = createSettingsPage(app, renderer.scene, false);
+  const settings = createSettingsPage(app, renderer.scene, world, false);
   syncArenaBounds(world, renderer);
   createHudOverlay(app, world);
   registerSystems(world);
@@ -816,6 +816,7 @@ function createTouchControls(app: HTMLElement): {
 function createSettingsPage(
   app: HTMLElement,
   scene: THREE.Scene,
+  world: World,
   showFloatingButton: boolean
 ): { open: () => void; close: () => void } {
   let currentBackground: BackgroundPreset = 'nebula';
@@ -923,6 +924,49 @@ function createSettingsPage(
   footer.style.display = 'flex';
   footer.style.justifyContent = 'flex-end';
   panel.appendChild(footer);
+
+  const devRow = document.createElement('div');
+  devRow.style.display = 'flex';
+  devRow.style.justifyContent = 'space-between';
+  devRow.style.alignItems = 'center';
+  devRow.style.border = '1px solid rgba(130, 204, 227, 0.5)';
+  devRow.style.borderRadius = '12px';
+  devRow.style.padding = '9px 10px';
+  devRow.style.background = 'rgba(10, 29, 41, 0.55)';
+  panel.appendChild(devRow);
+  const devLabel = document.createElement('div');
+  devLabel.textContent = 'Dev Mode (Unlimited Hero)';
+  devLabel.style.color = '#c9f4ff';
+  devLabel.style.fontSize = '12px';
+  devLabel.style.fontWeight = '700';
+  devLabel.style.letterSpacing = '0.04em';
+  devRow.appendChild(devLabel);
+  const devToggle = document.createElement('button');
+  devToggle.style.height = '34px';
+  devToggle.style.padding = '0 12px';
+  devToggle.style.borderRadius = '999px';
+  devToggle.style.fontWeight = '700';
+  devToggle.style.letterSpacing = '0.04em';
+  devRow.appendChild(devToggle);
+
+  const syncDev = (): void => {
+    if (world.unlimitedPowerMode) {
+      devToggle.textContent = 'ON';
+      devToggle.style.border = '1px solid rgba(154, 255, 216, 0.9)';
+      devToggle.style.background = 'rgba(34, 132, 98, 0.7)';
+      devToggle.style.color = '#e8fff7';
+    } else {
+      devToggle.textContent = 'OFF';
+      devToggle.style.border = '1px solid rgba(244, 186, 156, 0.9)';
+      devToggle.style.background = 'rgba(137, 69, 42, 0.72)';
+      devToggle.style.color = '#fff0e5';
+    }
+  };
+  syncDev();
+  devToggle.addEventListener('click', () => {
+    world.unlimitedPowerMode = !world.unlimitedPowerMode;
+    syncDev();
+  });
   const closeButton = document.createElement('button');
   closeButton.textContent = 'Close';
   closeButton.style.border = '1px solid rgba(136, 225, 255, 0.8)';

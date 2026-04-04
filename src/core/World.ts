@@ -94,6 +94,7 @@ export class World {
 
   public timeMs = 0;
   public score = 0;
+  public unlimitedPowerMode = false;
   public phase: 'lobby' | 'countdown' | 'playing' | 'stageClear' | 'defeat' | 'victory' = 'lobby';
   public stageCountdownMs = 0;
   public currentStage: 1 | 2 | 3 | 4 | 5 = 1;
@@ -226,6 +227,9 @@ export class World {
       return;
     }
     health.current = Math.max(0, health.current - amount);
+    if (entity === this.tankerEntity && this.unlimitedPowerMode) {
+      return;
+    }
     if (health.current <= 0) {
       this.deathQueue.push(entity);
     }

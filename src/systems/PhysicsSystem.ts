@@ -136,7 +136,9 @@ export class PhysicsSystem implements System {
         this.emitImpactBurst(world, tankerTransform.x, tankerTransform.y, 0xffb38c, 11, 7.5);
       }
       if ((world.health.get(tanker)?.current ?? 1) <= 0) {
-        gameStore.getState().setHud({ isGameOver: true, endState: 'defeat' });
+        if (!world.unlimitedPowerMode) {
+          gameStore.getState().setHud({ isGameOver: true, endState: 'defeat' });
+        }
       }
     }
 
@@ -152,7 +154,9 @@ export class PhysicsSystem implements System {
         this.emitImpactBurst(world, tankerTransform.x, tankerTransform.y, 0xffb993, 9, 6.6);
       }
       if ((world.health.get(tanker)?.current ?? 1) <= 0) {
-        gameStore.getState().setHud({ isGameOver: true, endState: 'defeat' });
+        if (!world.unlimitedPowerMode) {
+          gameStore.getState().setHud({ isGameOver: true, endState: 'defeat' });
+        }
       }
     }
   }
