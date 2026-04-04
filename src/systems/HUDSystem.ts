@@ -16,6 +16,8 @@ export class HUDSystem implements System {
       bossHp: Math.max(0, bossHealth?.current ?? 0),
       bossMaxHp: bossHealth?.max ?? 1,
       bossStage: boss?.stage ?? world.currentStage,
+      heroCharge: world.heroCharge,
+      powerShotsRemaining: world.powerShotsRemaining,
       score: world.score
     });
   }

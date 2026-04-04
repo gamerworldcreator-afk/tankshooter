@@ -8,6 +8,8 @@ export interface HudState {
   bossStage: 1 | 2 | 3 | 4 | 5;
   tankerHp: number;
   pulseCooldownMs: number;
+  heroCharge: number;
+  powerShotsRemaining: number;
   isGameOver: boolean;
   endState: 'none' | 'victory' | 'defeat';
   overlayMessage: string;
@@ -34,6 +36,8 @@ const INITIAL_STATE: HudState = {
   bossStage: 1,
   tankerHp: 100,
   pulseCooldownMs: 0,
+  heroCharge: 0,
+  powerShotsRemaining: 0,
   isGameOver: false,
   endState: 'none',
   overlayMessage: '',

@@ -2,9 +2,11 @@ import { gameStore } from '../store/gameStore';
 import type { System, World } from '../core/World';
 
 const BULLET_DAMAGE = 22;
+const POWER_BULLET_DAMAGE = 58;
 const TANKER_COLLISION_DAMAGE = 14;
 const ENEMY_BULLET_DAMAGE = 10;
 const FABRICATOR_DAMAGE = 9;
+const POWER_FABRICATOR_DAMAGE = 26;
 
 export class PhysicsSystem implements System {
   public readonly priority = 2;
@@ -58,7 +60,8 @@ export class PhysicsSystem implements System {
       }
 
       const role = world.roles.get(entity);
-      if (role === 'bullet' && transform.y > world.arena.maxY + 2) {
+      if ((role === 'bullet' || role === 'powerBullet') && transform.y > world.arena.maxY + 2) {
+        world.heroHitStreak = 0;
         world.releaseToPool(entity);
         continue;
       }
@@ -73,7 +76,7 @@ export class PhysicsSystem implements System {
   }
 
   private resolveCollisions(world: World): void {
-    const bullets = world.getEntitiesByRole('bullet');
+    const bullets = [...world.getEntitiesByRole('bullet'), ...world.getEntitiesByRole('powerBullet')];
     const enemyBullets = world.getEntitiesByRole('enemyBullet');
     const obstacles = [...world.getEntitiesByRole('obstacle'), ...world.getEntitiesByRole('enemyJet')];
     const fabricator = world.fabricatorEntity;
@@ -87,6 +90,7 @@ export class PhysicsSystem implements System {
         const bt = world.transforms.get(bullet);
         world.releaseToPool(bullet);
         world.releaseToPool(enemyBullet);
+        this.addHeroCharge(world, 3);
         if (bt) {
           this.emitImpactBurst(world, bt.x, bt.y, 0xcdf8ff, 6, 5.2);
         }
@@ -99,8 +103,10 @@ export class PhysicsSystem implements System {
         if (!this.intersects(world, bullet, obstacle)) {
           continue;
         }
+        const damage = world.roles.get(bullet) === 'powerBullet' ? POWER_BULLET_DAMAGE : BULLET_DAMAGE;
         world.releaseToPool(bullet);
-        world.applyDamage(obstacle, BULLET_DAMAGE);
+        world.applyDamage(obstacle, damage);
+        this.addHeroCharge(world, damage >= POWER_BULLET_DAMAGE ? 8 : 5);
         if ((world.health.get(obstacle)?.current ?? 1) <= 0) {
           world.feedbackQueue.push({ kind: 'kill', magnitude: 0.18, haptics: [15, 10, 15] });
           world.addScore(20);
@@ -115,8 +121,10 @@ export class PhysicsSystem implements System {
       }
       if (fabricator > 0 && this.intersects(world, bullet, fabricator)) {
         const bulletTransform = world.transforms.get(bullet);
+        const damage = world.roles.get(bullet) === 'powerBullet' ? POWER_FABRICATOR_DAMAGE : FABRICATOR_DAMAGE;
         world.releaseToPool(bullet);
-        world.applyDamage(fabricator, FABRICATOR_DAMAGE);
+        world.applyDamage(fabricator, damage);
+        this.addHeroCharge(world, damage >= POWER_FABRICATOR_DAMAGE ? 10 : 6);
         world.addScore(2);
         if (bulletTransform) {
           this.emitImpactBurst(world, bulletTransform.x, bulletTransform.y, 0x95fff2, 8, 6.5);
@@ -216,6 +224,18 @@ export class PhysicsSystem implements System {
         scale: 0.9 + Math.random() * 0.8,
         tint
       });
+    }
+  }
+
+  private addHeroCharge(world: World, base: number): void {
+    world.heroHitStreak += 1;
+    const streakBoost = Math.min(8, Math.floor(world.heroHitStreak / 4));
+    world.heroCharge = Math.min(100, world.heroCharge + base + streakBoost);
+
+    if (world.heroCharge >= 100 && world.powerShotsRemaining <= 0) {
+      world.heroCharge = 0;
+      world.powerShotsRemaining = world.currentStage >= 5 ? 6 : world.currentStage >= 3 ? 5 : 4;
+      world.feedbackQueue.push({ kind: 'kill', magnitude: 0.12, haptics: [16, 8, 16] });
     }
   }
 

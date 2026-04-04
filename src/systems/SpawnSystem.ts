@@ -6,6 +6,7 @@ export class SpawnSystem implements System {
   public readonly name = 'SpawnSystem';
 
   private bulletCooldownMs = 0;
+  private powerBulletCooldownMs = 0;
   private obstacleCooldownMs = 0;
   private volleyFlip = false;
 
@@ -19,6 +20,7 @@ export class SpawnSystem implements System {
     }
 
     this.bulletCooldownMs -= dt * 1000;
+    this.powerBulletCooldownMs -= dt * 1000;
     this.obstacleCooldownMs -= dt * 1000;
 
     if (world.phase === 'playing' && world.input.shootHeld && this.bulletCooldownMs <= 0) {
@@ -51,8 +53,30 @@ export class SpawnSystem implements System {
       });
     }
 
+    if (
+      world.phase === 'playing' &&
+      world.input.powerRequested &&
+      world.powerShotsRemaining > 0 &&
+      this.powerBulletCooldownMs <= 0
+    ) {
+      this.powerBulletCooldownMs = 320;
+      world.powerShotsRemaining = Math.max(0, world.powerShotsRemaining - 1);
+      world.queueSpawn({
+        key: 'powerBullet',
+        role: 'powerBullet',
+        x: tanker.x,
+        y: tanker.y + 1.2,
+        vx: 0,
+        vy: 16.8,
+        scale: 1.55
+      });
+      world.input.powerRequested = false;
+    } else if (world.input.powerRequested && world.powerShotsRemaining <= 0) {
+      world.input.powerRequested = false;
+    }
+
     const stage = world.currentStage;
-    const spawnRate = stage === 1 ? 760 : stage === 2 ? 560 : stage === 3 ? 430 : stage === 4 ? 340 : 260;
+    const spawnRate = stage === 1 ? 760 : stage === 2 ? 630 : stage === 3 ? 560 : stage === 4 ? 480 : 430;
     if (world.phase === 'playing' && this.obstacleCooldownMs <= 0) {
       this.obstacleCooldownMs = spawnRate;
       world.queueSpawn({
@@ -60,8 +84,8 @@ export class SpawnSystem implements System {
         role: 'obstacle',
         x: world.arena.minX + Math.random() * (world.arena.maxX - world.arena.minX),
         y: world.arena.maxY + 1.3,
-        vx: (Math.random() - 0.5) * (stage >= 4 ? 4.2 : 2.4),
-        vy: -3.6 - stage * 0.58
+        vx: (Math.random() - 0.5) * 2.8,
+        vy: -3.9 - Math.random() * 0.75
       });
     }
 

@@ -11,6 +11,7 @@ export type EntityRole =
   | 'tanker'
   | 'fabricator'
   | 'bullet'
+  | 'powerBullet'
   | 'enemyBullet'
   | 'enemyJet'
   | 'obstacle'
@@ -82,7 +83,8 @@ export class World {
     moveAxisX: 0,
     useAxisControl: false,
     shootHeld: false,
-    pulseRequested: false
+    pulseRequested: false,
+    powerRequested: false
   };
 
   public readonly arena = {
@@ -95,6 +97,9 @@ export class World {
   public timeMs = 0;
   public score = 0;
   public unlimitedPowerMode = false;
+  public heroCharge = 0;
+  public heroHitStreak = 0;
+  public powerShotsRemaining = 0;
   public phase: 'lobby' | 'countdown' | 'playing' | 'stageClear' | 'defeat' | 'victory' = 'lobby';
   public stageCountdownMs = 0;
   public currentStage: 1 | 2 | 3 | 4 | 5 = 1;

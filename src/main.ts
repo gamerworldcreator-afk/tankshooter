@@ -66,33 +66,62 @@ async function bootstrap(): Promise<void> {
 }
 
 function createBackdrop(scene: THREE.Scene): void {
-  const stars = new THREE.BufferGeometry();
-  const count = 320;
-  const vertices = new Float32Array(count * 3);
-  for (let i = 0; i < count; i += 1) {
-    vertices[i * 3] = (Math.random() - 0.5) * 22;
-    vertices[i * 3 + 1] = (Math.random() - 0.5) * 22;
-    vertices[i * 3 + 2] = -8 - Math.random() * 16;
-  }
-  stars.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-  const points = new THREE.Points(
-    stars,
-    new THREE.PointsMaterial({ color: 0x78e2ff, size: 0.035, transparent: true, opacity: 0.8 })
+  const makeStars = (
+    name: string,
+    count: number,
+    spread: number,
+    zBase: number,
+    size: number,
+    opacity: number
+  ): THREE.Points => {
+    const stars = new THREE.BufferGeometry();
+    const vertices = new Float32Array(count * 3);
+    for (let i = 0; i < count; i += 1) {
+      vertices[i * 3] = (Math.random() - 0.5) * spread;
+      vertices[i * 3 + 1] = (Math.random() - 0.5) * spread;
+      vertices[i * 3 + 2] = zBase - Math.random() * 14;
+    }
+    stars.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+    const points = new THREE.Points(
+      stars,
+      new THREE.PointsMaterial({ color: 0x78e2ff, size, transparent: true, opacity })
+    );
+    points.name = name;
+    scene.add(points);
+    return points;
+  };
+
+  makeStars('bgStarsFar', 240, 44, -16, 0.03, 0.5);
+  const starsMid = makeStars('bgStars', 280, 40, -12, 0.038, 0.78);
+  makeStars('bgStarsNear', 160, 34, -8, 0.048, 0.64);
+
+  const hazeFar = new THREE.Mesh(
+    new THREE.PlaneGeometry(44, 28),
+    new THREE.MeshBasicMaterial({
+      color: 0x0d2842,
+      transparent: true,
+      opacity: 0.24
+    })
   );
-  points.name = 'bgStars';
-  scene.add(points);
+  hazeFar.name = 'bgHazeFar';
+  hazeFar.position.z = -11.5;
+  scene.add(hazeFar);
 
   const haze = new THREE.Mesh(
-    new THREE.PlaneGeometry(34, 24),
+    new THREE.PlaneGeometry(36, 24),
     new THREE.MeshBasicMaterial({
       color: 0x113247,
       transparent: true,
-      opacity: 0.28
+      opacity: 0.26
     })
   );
   haze.name = 'bgHaze';
-  haze.position.z = -6;
+  haze.position.z = -6.8;
   scene.add(haze);
+
+  if (starsMid.material instanceof THREE.PointsMaterial) {
+    starsMid.material.blending = THREE.AdditiveBlending;
+  }
 
   const ambient = new THREE.AmbientLight(0x7ac8ff, 0.48);
   const key = new THREE.DirectionalLight(0x8ef0ff, 0.82);
@@ -132,7 +161,7 @@ function syncArenaBounds(world: World, renderer: Renderer): void {
   const tanker = world.transforms.get(world.tankerEntity);
   if (tanker) {
     tanker.x = THREE.MathUtils.clamp(tanker.x, world.arena.minX, world.arena.maxX);
-    tanker.y = world.arena.minY + 1.45;
+    tanker.y = world.arena.minY + 1.05;
   }
   const pulseWave = world.getEntitiesByRole('pulseWave', false)[0];
   const pulseTransform = pulseWave ? world.transforms.get(pulseWave) : undefined;
@@ -162,7 +191,7 @@ function buildEntities(world: World, scene: THREE.Scene): void {
   world.addComponent(tanker, {
     type: 'Transform',
     x: 0,
-    y: world.arena.minY + 1.45,
+    y: world.arena.minY + 1.05,
     z: 0,
     rotX: 0,
     rotY: 0,
@@ -319,7 +348,7 @@ function buildEntities(world: World, scene: THREE.Scene): void {
   world.addComponent(pulseWave, {
     type: 'Transform',
     x: 0,
-    y: world.arena.minY + 1.45,
+    y: world.arena.minY + 1.05,
     z: 0.03,
     rotX: 0,
     rotY: 0,
@@ -397,6 +426,42 @@ function createPooledEntities(world: World, scene: THREE.Scene): void {
     bullets.push(e);
   }
   world.registerPool('bullet', bullets);
+
+  const powerBullets: number[] = [];
+  for (let i = 0; i < 16; i += 1) {
+    const e = world.createEntity('powerBullet');
+    world.addComponent(e, {
+      type: 'Transform',
+      x: 0,
+      y: -100,
+      z: 0,
+      rotX: 0,
+      rotY: 0,
+      rotZ: 0,
+      scaleX: 1,
+      scaleY: 1,
+      scaleZ: 1
+    });
+    world.addComponent(e, { type: 'Velocity', vx: 0, vy: 0, vz: 0 });
+    world.addComponent(e, { type: 'Poolable', poolKey: 'powerBullet', active: false });
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.2, 12, 12),
+      new THREE.MeshBasicMaterial({ color: 0xffe29b, transparent: true, opacity: 0.95 })
+    );
+    const halo = new THREE.Mesh(
+      new THREE.RingGeometry(0.25, 0.36, 24),
+      new THREE.MeshBasicMaterial({ color: 0xffc26d, transparent: true, opacity: 0.75, side: THREE.DoubleSide })
+    );
+    halo.layers.enable(BLOOM_LAYER);
+    mesh.add(halo);
+    mesh.visible = false;
+    mesh.layers.enable(BLOOM_LAYER);
+    scene.add(mesh);
+    world.addComponent(e, { type: 'Render', mesh, bloomLayer: BLOOM_LAYER });
+    world.hitboxes.set(e, { w: 0.42, h: 0.42 });
+    powerBullets.push(e);
+  }
+  world.registerPool('powerBullet', powerBullets);
 
   const obstacles: number[] = [];
   for (let i = 0; i < 60; i += 1) {
@@ -493,6 +558,61 @@ function createPooledEntities(world: World, scene: THREE.Scene): void {
     enemyBullets.push(e);
   }
   world.registerPool('enemyBullet', enemyBullets);
+
+  const enemyJets: number[] = [];
+  for (let i = 0; i < 12; i += 1) {
+    const e = world.createEntity('enemyJet');
+    world.addComponent(e, {
+      type: 'Transform',
+      x: 0,
+      y: 100,
+      z: 0,
+      rotX: 0,
+      rotY: 0,
+      rotZ: 0,
+      scaleX: 1,
+      scaleY: 1,
+      scaleZ: 1
+    });
+    world.addComponent(e, { type: 'Velocity', vx: 0, vy: 0, vz: 0 });
+    world.addComponent(e, { type: 'Health', current: 420, max: 420, regenRate: 0 });
+    world.addComponent(e, { type: 'Poolable', poolKey: 'enemyJet', active: false });
+
+    const jet = new THREE.Group();
+    const body = new THREE.Mesh(
+      new THREE.ConeGeometry(0.24, 0.82, 10),
+      new THREE.MeshStandardMaterial({
+        color: 0x88ffd7,
+        emissive: 0x1d6e54,
+        emissiveIntensity: 0.75,
+        roughness: 0.28,
+        metalness: 0.64
+      })
+    );
+    body.rotation.x = Math.PI;
+    const wingA = new THREE.Mesh(
+      new THREE.BoxGeometry(0.7, 0.08, 0.15),
+      new THREE.MeshStandardMaterial({ color: 0x9effdf, emissive: 0x255f4e, emissiveIntensity: 0.64 })
+    );
+    wingA.position.y = -0.05;
+    const wingB = wingA.clone();
+    wingB.rotation.z = Math.PI / 2;
+    const glow = new THREE.Mesh(
+      new THREE.SphereGeometry(0.1, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xb4ffe6, transparent: true, opacity: 0.82 })
+    );
+    glow.position.y = -0.36;
+    glow.layers.enable(BLOOM_LAYER);
+    jet.add(body, wingA, wingB, glow);
+    jet.visible = false;
+    jet.layers.enable(BLOOM_LAYER);
+    scene.add(jet);
+
+    world.addComponent(e, { type: 'Render', mesh: jet, bloomLayer: BLOOM_LAYER });
+    world.hitboxes.set(e, { w: 0.78, h: 0.78 });
+    enemyJets.push(e);
+  }
+  world.registerPool('enemyJet', enemyJets);
 
   const debris: number[] = [];
   for (let i = 0; i < 50; i += 1) {
@@ -597,9 +717,22 @@ function bindInput(
     event.preventDefault();
     world.input.pulseRequested = false;
   });
+  controls.powerButton.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    world.input.powerRequested = true;
+  });
+  controls.powerButton.addEventListener('pointerup', () => {
+    world.input.powerRequested = false;
+  });
+  controls.powerButton.addEventListener('pointercancel', () => {
+    world.input.powerRequested = false;
+  });
+  controls.powerButton.addEventListener('pointerleave', () => {
+    world.input.powerRequested = false;
+  });
 
   let movePointerId: number | null = null;
-  const maxTravel = 34;
+  const maxTravel = 28;
   const deadZone = 0.09;
 
   const updateMoveAxis = (clientX: number, clientY: number): void => {
@@ -702,6 +835,10 @@ function bindInput(
       world.input.pulseRequested = false;
       event.preventDefault();
     }
+    if (event.code === 'KeyK') {
+      world.input.powerRequested = true;
+      event.preventDefault();
+    }
   });
   window.addEventListener('keyup', (event) => {
     if (event.code === 'ArrowLeft' || event.code === 'KeyA' || event.code === 'ArrowRight' || event.code === 'KeyD') {
@@ -710,11 +847,26 @@ function bindInput(
     if (event.code === 'KeyJ' || event.code === 'Enter') {
       world.input.shootHeld = false;
     }
+    if (event.code === 'KeyK') {
+      world.input.powerRequested = false;
+    }
   });
   window.addEventListener('blur', () => {
     world.input.shootHeld = false;
     world.input.moveAxisX = 0;
+    world.input.powerRequested = false;
   });
+
+  const syncPowerButton = (state: ReturnType<typeof gameStore.getState>): void => {
+    if (state.powerShotsRemaining > 0) {
+      controls.powerButton.style.display = 'inline-flex';
+      controls.powerButton.textContent = `NOVA ${state.powerShotsRemaining}`;
+    } else {
+      controls.powerButton.style.display = 'none';
+    }
+  };
+  syncPowerButton(gameStore.getState());
+  gameStore.subscribe((state) => syncPowerButton(state));
 }
 
 function createTouchControls(app: HTMLElement): {
@@ -723,12 +875,13 @@ function createTouchControls(app: HTMLElement): {
   stick: HTMLDivElement;
   fireButton: HTMLButtonElement;
   pulseButton: HTMLButtonElement;
+  powerButton: HTMLButtonElement;
 } {
   const controlsRoot = document.createElement('div');
   controlsRoot.style.position = 'absolute';
   controlsRoot.style.left = '0';
   controlsRoot.style.right = '0';
-  controlsRoot.style.bottom = 'calc(env(safe-area-inset-bottom, 0px) + 8px)';
+  controlsRoot.style.bottom = 'calc(env(safe-area-inset-bottom, 0px) + 4px)';
   controlsRoot.style.display = 'flex';
   controlsRoot.style.justifyContent = 'space-between';
   controlsRoot.style.alignItems = 'flex-end';
@@ -738,8 +891,8 @@ function createTouchControls(app: HTMLElement): {
   app.appendChild(controlsRoot);
 
   const movePad = document.createElement('div');
-  movePad.style.width = '116px';
-  movePad.style.height = '116px';
+  movePad.style.width = '96px';
+  movePad.style.height = '96px';
   movePad.style.borderRadius = '999px';
   movePad.style.border = '1px solid rgba(118, 231, 255, 0.8)';
   movePad.style.background =
@@ -753,8 +906,8 @@ function createTouchControls(app: HTMLElement): {
   controlsRoot.appendChild(movePad);
 
   const stick = document.createElement('div');
-  stick.style.width = '48px';
-  stick.style.height = '48px';
+  stick.style.width = '40px';
+  stick.style.height = '40px';
   stick.style.borderRadius = '999px';
   stick.style.border = '1px solid rgba(190, 248, 255, 0.96)';
   stick.style.background =
@@ -765,9 +918,8 @@ function createTouchControls(app: HTMLElement): {
 
   const actionColumn = document.createElement('div');
   actionColumn.style.display = 'flex';
-  actionColumn.style.flexDirection = 'column';
   actionColumn.style.alignItems = 'flex-end';
-  actionColumn.style.gap = '10px';
+  actionColumn.style.gap = '8px';
   actionColumn.style.pointerEvents = 'none';
   controlsRoot.appendChild(actionColumn);
 
@@ -790,15 +942,34 @@ function createTouchControls(app: HTMLElement): {
   pulseButton.style.display = 'none';
   actionColumn.appendChild(pulseButton);
 
+  const powerButton = document.createElement('button');
+  powerButton.textContent = 'NOVA';
+  powerButton.style.width = '74px';
+  powerButton.style.height = '74px';
+  powerButton.style.borderRadius = '999px';
+  powerButton.style.border = '1px solid rgba(157, 255, 219, 0.94)';
+  powerButton.style.color = '#eafff6';
+  powerButton.style.fontWeight = '800';
+  powerButton.style.fontSize = '11px';
+  powerButton.style.letterSpacing = '0.06em';
+  powerButton.style.background =
+    'radial-gradient(circle at 36% 28%, rgba(182, 255, 233, 0.84), rgba(36, 122, 91, 0.68) 72%, rgba(15, 66, 46, 0.8) 100%)';
+  powerButton.style.backdropFilter = 'blur(10px)';
+  powerButton.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.35), 0 0 12px rgba(111, 255, 204, 0.3)';
+  powerButton.style.pointerEvents = 'auto';
+  powerButton.style.touchAction = 'none';
+  powerButton.style.display = 'none';
+  actionColumn.appendChild(powerButton);
+
   const fireButton = document.createElement('button');
   fireButton.textContent = 'BLAST';
-  fireButton.style.width = '104px';
-  fireButton.style.height = '104px';
+  fireButton.style.width = '88px';
+  fireButton.style.height = '88px';
   fireButton.style.borderRadius = '999px';
   fireButton.style.border = '1px solid rgba(255, 195, 128, 0.95)';
   fireButton.style.color = '#fff3e3';
   fireButton.style.fontWeight = '700';
-  fireButton.style.fontSize = '15px';
+  fireButton.style.fontSize = '13px';
   fireButton.style.letterSpacing = '0.11em';
   fireButton.style.textShadow = '0 0 8px rgba(255, 206, 140, 0.45)';
   fireButton.style.background =
@@ -810,7 +981,7 @@ function createTouchControls(app: HTMLElement): {
   fireButton.style.touchAction = 'none';
   actionColumn.appendChild(fireButton);
 
-  return { root: controlsRoot, movePad, stick, fireButton, pulseButton };
+  return { root: controlsRoot, movePad, stick, fireButton, pulseButton, powerButton };
 }
 
 function createSettingsPage(
@@ -1068,15 +1239,27 @@ function createSettingsPage(
 
 function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): void {
   const stars = scene.getObjectByName('bgStars');
+  const starsFar = scene.getObjectByName('bgStarsFar');
+  const starsNear = scene.getObjectByName('bgStarsNear');
   const haze = scene.getObjectByName('bgHaze');
+  const hazeFar = scene.getObjectByName('bgHazeFar');
   const leftRail = scene.getObjectByName('leftRail');
   const rightRail = scene.getObjectByName('rightRail');
   const starMat = stars instanceof THREE.Points ? stars.material : null;
+  const starFarMat = starsFar instanceof THREE.Points ? starsFar.material : null;
+  const starNearMat = starsNear instanceof THREE.Points ? starsNear.material : null;
   const hazeMat = haze instanceof THREE.Mesh ? haze.material : null;
+  const hazeFarMat = hazeFar instanceof THREE.Mesh ? hazeFar.material : null;
   const leftMat = leftRail instanceof THREE.Mesh ? leftRail.material : null;
   const rightMat = rightRail instanceof THREE.Mesh ? rightRail.material : null;
 
-  if (!(starMat instanceof THREE.PointsMaterial) || !(hazeMat instanceof THREE.MeshBasicMaterial)) {
+  if (
+    !(starMat instanceof THREE.PointsMaterial) ||
+    !(hazeMat instanceof THREE.MeshBasicMaterial) ||
+    !(starFarMat instanceof THREE.PointsMaterial) ||
+    !(starNearMat instanceof THREE.PointsMaterial) ||
+    !(hazeFarMat instanceof THREE.MeshBasicMaterial)
+  ) {
     return;
   }
 
@@ -1084,8 +1267,14 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
     scene.background = new THREE.Color(0x120b14);
     starMat.color.setHex(0xffb08a);
     starMat.opacity = 0.7;
+    starFarMat.color.setHex(0xf59872);
+    starFarMat.opacity = 0.46;
+    starNearMat.color.setHex(0xffc8a4);
+    starNearMat.opacity = 0.62;
     hazeMat.color.setHex(0x4f2035);
     hazeMat.opacity = 0.3;
+    hazeFarMat.color.setHex(0x3a1831);
+    hazeFarMat.opacity = 0.27;
     if (leftMat instanceof THREE.MeshBasicMaterial) {
       leftMat.color.setHex(0xff9a75);
       leftMat.opacity = 0.42;
@@ -1103,8 +1292,14 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
     scene.background = new THREE.Color(0x02040a);
     starMat.color.setHex(0x88b9ff);
     starMat.opacity = 0.62;
+    starFarMat.color.setHex(0x608fd0);
+    starFarMat.opacity = 0.42;
+    starNearMat.color.setHex(0x9ec7ff);
+    starNearMat.opacity = 0.55;
     hazeMat.color.setHex(0x0f1d42);
     hazeMat.opacity = 0.18;
+    hazeFarMat.color.setHex(0x0a1331);
+    hazeFarMat.opacity = 0.2;
     if (leftMat instanceof THREE.MeshBasicMaterial) {
       leftMat.color.setHex(0x7fb3ff);
       leftMat.opacity = 0.32;
@@ -1121,8 +1316,14 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
   scene.background = new THREE.Color(0x05080d);
   starMat.color.setHex(0x78e2ff);
   starMat.opacity = 0.8;
+  starFarMat.color.setHex(0x5ab5dd);
+  starFarMat.opacity = 0.5;
+  starNearMat.color.setHex(0x9cecff);
+  starNearMat.opacity = 0.65;
   hazeMat.color.setHex(0x113247);
   hazeMat.opacity = 0.28;
+  hazeFarMat.color.setHex(0x0d2842);
+  hazeFarMat.opacity = 0.24;
   if (leftMat instanceof THREE.MeshBasicMaterial) {
     leftMat.color.setHex(0x8ce8ff);
     leftMat.opacity = 0.38;
@@ -1239,11 +1440,18 @@ function resetActorsForStage(world: World, stage: 1 | 2 | 3 | 4 | 5, healHero: b
     'enemyJet',
     'bullet'
   ];
+  for (const entity of world.getEntitiesByRole('powerBullet')) {
+    world.releaseToPool(entity);
+  }
   for (const role of obstacleRoles) {
     for (const entity of world.getEntitiesByRole(role)) {
       world.releaseToPool(entity);
     }
   }
+  world.heroCharge = 0;
+  world.heroHitStreak = 0;
+  world.powerShotsRemaining = 0;
+  world.input.powerRequested = false;
 }
 
 function createIntroPage(
@@ -1445,6 +1653,29 @@ function createHudOverlay(app: HTMLElement, world: World): void {
   const bossBar = createBar('Villian', 'linear-gradient(90deg, #9dffd8, #31c692)');
   root.append(tankerBar.wrap, bossBar.wrap);
 
+  const chargeWrap = document.createElement('div');
+  chargeWrap.style.position = 'absolute';
+  chargeWrap.style.left = '50%';
+  chargeWrap.style.top = 'calc(env(safe-area-inset-top, 0px) + 56px)';
+  chargeWrap.style.transform = 'translateX(-50%)';
+  chargeWrap.style.width = 'min(44vw, 170px)';
+  chargeWrap.style.borderRadius = '999px';
+  chargeWrap.style.padding = '4px';
+  chargeWrap.style.border = '1px solid rgba(164, 247, 223, 0.6)';
+  chargeWrap.style.background = 'rgba(7, 22, 29, 0.6)';
+  chargeWrap.style.backdropFilter = 'blur(8px)';
+  chargeWrap.style.zIndex = '13';
+  chargeWrap.style.pointerEvents = 'none';
+  app.appendChild(chargeWrap);
+
+  const chargeFill = document.createElement('div');
+  chargeFill.style.height = '7px';
+  chargeFill.style.borderRadius = '999px';
+  chargeFill.style.width = '0%';
+  chargeFill.style.background = 'linear-gradient(90deg, #8dffd8, #54d8af)';
+  chargeFill.style.boxShadow = '0 0 8px rgba(139, 255, 215, 0.45)';
+  chargeWrap.appendChild(chargeFill);
+
   const gameOver = document.createElement('div');
   gameOver.style.position = 'absolute';
   gameOver.style.top = '50%';
@@ -1536,6 +1767,14 @@ function createHudOverlay(app: HTMLElement, world: World): void {
     const bossPct = Math.max(0, Math.min(100, (state.bossHp / Math.max(1, state.bossMaxHp)) * 100));
     bossBar.fill.style.width = `${bossPct}%`;
     bossBar.value.textContent = `${Math.ceil(state.bossHp)} / ${Math.ceil(state.bossMaxHp)}`;
+    chargeFill.style.width = `${Math.max(0, Math.min(100, state.heroCharge))}%`;
+    if (state.powerShotsRemaining > 0) {
+      chargeWrap.style.borderColor = 'rgba(156, 255, 217, 0.92)';
+      chargeWrap.style.boxShadow = '0 0 0 1px rgba(160, 255, 222, 0.28), 0 0 16px rgba(94, 214, 170, 0.35)';
+    } else {
+      chargeWrap.style.borderColor = 'rgba(164, 247, 223, 0.6)';
+      chargeWrap.style.boxShadow = 'none';
+    }
     if (state.endState === 'victory') {
       gameOver.textContent = 'VICTORY';
       gameOver.style.border = '1px solid rgba(129, 255, 214, 0.72)';

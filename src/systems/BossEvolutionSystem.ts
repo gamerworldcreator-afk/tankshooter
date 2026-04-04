@@ -8,6 +8,8 @@ export class BossEvolutionSystem implements System {
   private beamTickMs = 0;
   private bossFireCooldownMs = 0;
   private obstacleDropCooldownMs = 0;
+  private supportLaunchCooldownMs = 0;
+  private readonly supportSlotByEntity = new Map<number, number>();
 
   public update(world: World, dt: number): void {
     const fabricator = world.fabricatorEntity;
@@ -39,16 +41,12 @@ export class BossEvolutionSystem implements System {
       Math.sin(t * (1.18 + stage * 0.06) + 1.4) * range * 0.32;
     transform.x = THREE.MathUtils.clamp(pattern, world.arena.minX + 1.2, world.arena.maxX - 1.2);
     transform.y = world.arena.maxY - 1.25 + Math.sin(t * (0.8 + stage * 0.03)) * (0.22 + stage * 0.03);
-    if (stage >= 5) {
-      const scale = 1.18 + Math.sin(t * 1.8) * 0.05;
-      transform.scaleX = scale;
-      transform.scaleY = scale;
-      transform.scaleZ = scale;
-    } else {
-      transform.scaleX = 1;
-      transform.scaleY = 1;
-      transform.scaleZ = 1;
-    }
+    const pulse = Math.sin(t * (2.1 + stage * 0.13));
+    const stretch = Math.cos(t * (1.2 + stage * 0.08));
+    const base = stage >= 5 ? 1.12 : stage >= 3 ? 1.02 : 1;
+    transform.scaleX = base + pulse * 0.11;
+    transform.scaleY = base - pulse * 0.09 + stretch * 0.04;
+    transform.scaleZ = base + stretch * 0.08;
   }
 
   private updateShieldVisual(world: World, enabled: boolean): void {
@@ -154,7 +152,7 @@ export class BossEvolutionSystem implements System {
     }
 
     if (this.bossFireCooldownMs <= 0) {
-      const cadence = stage === 3 ? 980 : stage === 4 ? 760 : 540;
+      const cadence = stage === 3 ? 1100 : stage === 4 ? 860 : 640;
       this.bossFireCooldownMs = cadence;
       const shots = stage >= 5 ? 3 : 2;
       for (let i = 0; i < shots; i += 1) {
@@ -174,14 +172,14 @@ export class BossEvolutionSystem implements System {
     }
 
     if (stage >= 3 && this.obstacleDropCooldownMs <= 0) {
-      this.obstacleDropCooldownMs = stage === 3 ? 2300 : stage === 4 ? 1700 : 1100;
+      this.obstacleDropCooldownMs = stage === 3 ? 2400 : stage === 4 ? 1900 : 1450;
       world.queueSpawn({
         key: 'obstacle',
         role: 'obstacle',
         x: bossTransform.x + (Math.random() - 0.5) * 1.8,
         y: bossTransform.y - 0.7,
-        vx: (Math.random() - 0.5) * (stage >= 5 ? 4.2 : 2.6),
-        vy: -4.8 - stage * 0.7
+        vx: (Math.random() - 0.5) * 2.6,
+        vy: -4.9 - Math.random() * 0.8
       });
     }
   }
@@ -193,60 +191,73 @@ export class BossEvolutionSystem implements System {
       return;
     }
 
-    if (stage < 4 || world.phase !== 'playing') {
+    if (stage < 3 || world.phase !== 'playing') {
       for (const jet of jets) {
         world.releaseToPool(jet);
+        this.supportSlotByEntity.delete(jet);
       }
       return;
     }
 
-    if (jets.filter((j) => world.isEntityActive(j)).length === 0) {
-      for (const offset of [-1.15, 1.15]) {
-        const jet = world.acquireFromPool('enemyJet');
-        if (!jet) {
-          continue;
-        }
+    const maxSupport = stage === 3 ? 2 : stage === 4 ? 3 : 4;
+    const activeJetSet = new Set(world.getEntitiesByRole('enemyJet'));
+    for (const [jet] of this.supportSlotByEntity) {
+      if (!activeJetSet.has(jet)) {
+        this.supportSlotByEntity.delete(jet);
+      }
+    }
+    this.supportLaunchCooldownMs -= dt * 1000;
+    const activeJets = world.getEntitiesByRole('enemyJet');
+    if (activeJets.length < maxSupport && this.supportLaunchCooldownMs <= 0) {
+      const jet = world.acquireFromPool('enemyJet');
+      if (jet) {
         const t = world.transforms.get(jet);
         const v = world.velocities.get(jet);
         const h = world.health.get(jet);
-        if (!t || !v || !h) {
-          continue;
+        if (t && v && h) {
+          const slot = this.getFirstOpenSlot(maxSupport);
+          this.supportSlotByEntity.set(jet, slot);
+          t.x = bossTransform.x + (Math.random() - 0.5) * 0.35;
+          t.y = bossTransform.y - 0.3;
+          t.scaleX = 0.74;
+          t.scaleY = 0.74;
+          t.scaleZ = 0.74;
+          v.vx = 0;
+          v.vy = 0;
+          h.max = stage >= 5 ? 620 : stage === 4 ? 520 : 420;
+          h.current = h.max;
+          world.obstacleFireCooldownMs.set(jet, 900 + Math.random() * 700);
         }
-        t.x = bossTransform.x + offset;
-        t.y = bossTransform.y - 1.7;
-        v.vx = 0;
-        v.vy = 0;
-        h.max = 450;
-        h.current = 450;
       }
+      this.supportLaunchCooldownMs = stage === 3 ? 3600 : stage === 4 ? 2600 : 1900;
     }
 
-    const activeJets = world.getEntitiesByRole('enemyJet');
-    for (let i = 0; i < activeJets.length; i += 1) {
-      const jet = activeJets[i];
+    const aliveJets = world.getEntitiesByRole('enemyJet');
+    for (const jet of aliveJets) {
       const t = world.transforms.get(jet);
       if (!t) {
         continue;
       }
-      const offset = i % 2 === 0 ? -1.25 : 1.25;
+      const slot = this.supportSlotByEntity.get(jet) ?? 0;
+      const spread = (slot - (maxSupport - 1) * 0.5) * 1.18;
       const time = world.timeMs * 0.001;
-      t.x = bossTransform.x + offset + Math.sin(time * 1.4 + i) * 0.35;
-      t.y = bossTransform.y - 1.75 + Math.cos(time * 1.8 + i) * 0.12;
+      const targetX = bossTransform.x + spread + Math.sin(time * 1.15 + slot * 0.7) * 0.24;
+      const targetY = bossTransform.y - 1.9 - Math.abs(spread) * 0.08 + Math.cos(time * 1.7 + slot) * 0.1;
+      t.x = THREE.MathUtils.lerp(t.x, targetX, 0.085);
+      t.y = THREE.MathUtils.lerp(t.y, targetY, 0.092);
+      const scale = 0.88 + Math.sin(time * 2.4 + slot) * 0.05;
+      t.scaleX = scale;
+      t.scaleY = scale;
+      t.scaleZ = scale;
+    }
+  }
 
-      const cd = (world.obstacleFireCooldownMs.get(jet) ?? 700) - dt * 1000;
-      if (cd <= 0) {
-        world.obstacleFireCooldownMs.set(jet, stage >= 5 ? 350 : 520);
-        world.queueSpawn({
-          key: 'enemyBullet',
-          role: 'enemyBullet',
-          x: t.x,
-          y: t.y - 0.4,
-          vx: (Math.random() - 0.5) * 2.2,
-          vy: -7.2
-        });
-      } else {
-        world.obstacleFireCooldownMs.set(jet, cd);
+  private getFirstOpenSlot(maxSupport: number): number {
+    for (let i = 0; i < maxSupport; i += 1) {
+      if (![...this.supportSlotByEntity.values()].includes(i)) {
+        return i;
       }
     }
+    return 0;
   }
 }

@@ -98,6 +98,7 @@ export class Renderer {
   public render(alpha: number): void {
     void alpha;
     this.syncSceneFromWorld();
+    this.animateBackdrop();
 
     this.scene.traverse(this.darkenNonBloomed);
     this.bloomComposer.render();
@@ -126,6 +127,44 @@ export class Renderer {
     const { shakeDelta } = gameStore.getState();
     this.camera.position.x = shakeDelta.x;
     this.camera.position.y = shakeDelta.y;
+  }
+
+  private animateBackdrop(): void {
+    const t = this.world.timeMs * 0.001;
+    const cameraX = this.camera.position.x;
+    const cameraY = this.camera.position.y;
+
+    const starsFar = this.scene.getObjectByName('bgStarsFar');
+    if (starsFar) {
+      starsFar.position.y = Math.sin(t * 0.18) * 0.9;
+      starsFar.position.x = cameraX * -0.05;
+      starsFar.rotation.z = t * 0.006;
+    }
+    const starsMid = this.scene.getObjectByName('bgStars');
+    if (starsMid) {
+      starsMid.position.y = Math.sin(t * 0.32) * 0.75;
+      starsMid.position.x = cameraX * -0.09;
+      starsMid.rotation.z = t * 0.01;
+    }
+    const starsNear = this.scene.getObjectByName('bgStarsNear');
+    if (starsNear) {
+      starsNear.position.y = Math.sin(t * 0.54) * 0.65;
+      starsNear.position.x = cameraX * -0.14;
+      starsNear.rotation.z = -t * 0.016;
+    }
+
+    const hazeFar = this.scene.getObjectByName('bgHazeFar');
+    if (hazeFar) {
+      hazeFar.position.x = Math.sin(t * 0.12) * 0.95 + cameraX * -0.04;
+      hazeFar.position.y = Math.cos(t * 0.16) * 0.52 + cameraY * -0.02;
+      hazeFar.rotation.z = Math.sin(t * 0.09) * 0.06;
+    }
+    const haze = this.scene.getObjectByName('bgHaze');
+    if (haze) {
+      haze.position.x = Math.cos(t * 0.24) * 0.68 + cameraX * -0.08;
+      haze.position.y = Math.sin(t * 0.28) * 0.4 + cameraY * -0.04;
+      haze.rotation.z = Math.cos(t * 0.11) * 0.05;
+    }
   }
 
   private readonly darkenNonBloomed = (obj: THREE.Object3D): void => {
