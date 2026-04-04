@@ -91,9 +91,26 @@ function createBackdrop(scene: THREE.Scene): void {
     return points;
   };
 
-  makeStars('bgStarsFar', 240, 44, -16, 0.03, 0.5);
-  const starsMid = makeStars('bgStars', 280, 40, -12, 0.038, 0.78);
-  makeStars('bgStarsNear', 160, 34, -8, 0.048, 0.64);
+  const makeDualStarLayer = (
+    baseName: string,
+    count: number,
+    spread: number,
+    zBase: number,
+    size: number,
+    opacity: number,
+    gapY: number
+  ): void => {
+    const layerA = makeStars(`${baseName}A`, count, spread, zBase, size, opacity);
+    const layerB = makeStars(`${baseName}B`, count, spread, zBase, size, opacity);
+    layerA.userData.parallaxGapY = gapY;
+    layerB.userData.parallaxGapY = gapY;
+    layerA.position.y = 0;
+    layerB.position.y = gapY;
+  };
+
+  makeDualStarLayer('bgStarsFar', 220, 44, -16, 0.03, 0.48, 22);
+  makeDualStarLayer('bgStarsMid', 260, 40, -12, 0.038, 0.76, 22);
+  makeDualStarLayer('bgStarsNear', 180, 34, -8, 0.05, 0.66, 22);
 
   const hazeFar = new THREE.Mesh(
     new THREE.PlaneGeometry(44, 28),
@@ -119,8 +136,13 @@ function createBackdrop(scene: THREE.Scene): void {
   haze.position.z = -6.8;
   scene.add(haze);
 
-  if (starsMid.material instanceof THREE.PointsMaterial) {
-    starsMid.material.blending = THREE.AdditiveBlending;
+  const starsMidA = scene.getObjectByName('bgStarsMidA');
+  const starsMidB = scene.getObjectByName('bgStarsMidB');
+  if (starsMidA instanceof THREE.Points && starsMidA.material instanceof THREE.PointsMaterial) {
+    starsMidA.material.blending = THREE.AdditiveBlending;
+  }
+  if (starsMidB instanceof THREE.Points && starsMidB.material instanceof THREE.PointsMaterial) {
+    starsMidB.material.blending = THREE.AdditiveBlending;
   }
 
   const ambient = new THREE.AmbientLight(0x7ac8ff, 0.48);
@@ -1238,26 +1260,35 @@ function createSettingsPage(
 }
 
 function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): void {
-  const stars = scene.getObjectByName('bgStars');
-  const starsFar = scene.getObjectByName('bgStarsFar');
-  const starsNear = scene.getObjectByName('bgStarsNear');
+  const starsMidA = scene.getObjectByName('bgStarsMidA');
+  const starsMidB = scene.getObjectByName('bgStarsMidB');
+  const starsFarA = scene.getObjectByName('bgStarsFarA');
+  const starsFarB = scene.getObjectByName('bgStarsFarB');
+  const starsNearA = scene.getObjectByName('bgStarsNearA');
+  const starsNearB = scene.getObjectByName('bgStarsNearB');
   const haze = scene.getObjectByName('bgHaze');
   const hazeFar = scene.getObjectByName('bgHazeFar');
   const leftRail = scene.getObjectByName('leftRail');
   const rightRail = scene.getObjectByName('rightRail');
-  const starMat = stars instanceof THREE.Points ? stars.material : null;
-  const starFarMat = starsFar instanceof THREE.Points ? starsFar.material : null;
-  const starNearMat = starsNear instanceof THREE.Points ? starsNear.material : null;
+  const starMidAMat = starsMidA instanceof THREE.Points ? starsMidA.material : null;
+  const starMidBMat = starsMidB instanceof THREE.Points ? starsMidB.material : null;
+  const starFarAMat = starsFarA instanceof THREE.Points ? starsFarA.material : null;
+  const starFarBMat = starsFarB instanceof THREE.Points ? starsFarB.material : null;
+  const starNearAMat = starsNearA instanceof THREE.Points ? starsNearA.material : null;
+  const starNearBMat = starsNearB instanceof THREE.Points ? starsNearB.material : null;
   const hazeMat = haze instanceof THREE.Mesh ? haze.material : null;
   const hazeFarMat = hazeFar instanceof THREE.Mesh ? hazeFar.material : null;
   const leftMat = leftRail instanceof THREE.Mesh ? leftRail.material : null;
   const rightMat = rightRail instanceof THREE.Mesh ? rightRail.material : null;
 
   if (
-    !(starMat instanceof THREE.PointsMaterial) ||
+    !(starMidAMat instanceof THREE.PointsMaterial) ||
+    !(starMidBMat instanceof THREE.PointsMaterial) ||
     !(hazeMat instanceof THREE.MeshBasicMaterial) ||
-    !(starFarMat instanceof THREE.PointsMaterial) ||
-    !(starNearMat instanceof THREE.PointsMaterial) ||
+    !(starFarAMat instanceof THREE.PointsMaterial) ||
+    !(starFarBMat instanceof THREE.PointsMaterial) ||
+    !(starNearAMat instanceof THREE.PointsMaterial) ||
+    !(starNearBMat instanceof THREE.PointsMaterial) ||
     !(hazeFarMat instanceof THREE.MeshBasicMaterial)
   ) {
     return;
@@ -1265,12 +1296,18 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
 
   if (preset === 'sunsetGrid') {
     scene.background = new THREE.Color(0x120b14);
-    starMat.color.setHex(0xffb08a);
-    starMat.opacity = 0.7;
-    starFarMat.color.setHex(0xf59872);
-    starFarMat.opacity = 0.46;
-    starNearMat.color.setHex(0xffc8a4);
-    starNearMat.opacity = 0.62;
+    starMidAMat.color.setHex(0xffb08a);
+    starMidBMat.color.setHex(0xffb08a);
+    starMidAMat.opacity = 0.72;
+    starMidBMat.opacity = 0.72;
+    starFarAMat.color.setHex(0xf59872);
+    starFarBMat.color.setHex(0xf59872);
+    starFarAMat.opacity = 0.46;
+    starFarBMat.opacity = 0.46;
+    starNearAMat.color.setHex(0xffc8a4);
+    starNearBMat.color.setHex(0xffc8a4);
+    starNearAMat.opacity = 0.62;
+    starNearBMat.opacity = 0.62;
     hazeMat.color.setHex(0x4f2035);
     hazeMat.opacity = 0.3;
     hazeFarMat.color.setHex(0x3a1831);
@@ -1290,12 +1327,18 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
 
   if (preset === 'deepVoid') {
     scene.background = new THREE.Color(0x02040a);
-    starMat.color.setHex(0x88b9ff);
-    starMat.opacity = 0.62;
-    starFarMat.color.setHex(0x608fd0);
-    starFarMat.opacity = 0.42;
-    starNearMat.color.setHex(0x9ec7ff);
-    starNearMat.opacity = 0.55;
+    starMidAMat.color.setHex(0x88b9ff);
+    starMidBMat.color.setHex(0x88b9ff);
+    starMidAMat.opacity = 0.64;
+    starMidBMat.opacity = 0.64;
+    starFarAMat.color.setHex(0x608fd0);
+    starFarBMat.color.setHex(0x608fd0);
+    starFarAMat.opacity = 0.42;
+    starFarBMat.opacity = 0.42;
+    starNearAMat.color.setHex(0x9ec7ff);
+    starNearBMat.color.setHex(0x9ec7ff);
+    starNearAMat.opacity = 0.55;
+    starNearBMat.opacity = 0.55;
     hazeMat.color.setHex(0x0f1d42);
     hazeMat.opacity = 0.18;
     hazeFarMat.color.setHex(0x0a1331);
@@ -1314,12 +1357,18 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
   }
 
   scene.background = new THREE.Color(0x05080d);
-  starMat.color.setHex(0x78e2ff);
-  starMat.opacity = 0.8;
-  starFarMat.color.setHex(0x5ab5dd);
-  starFarMat.opacity = 0.5;
-  starNearMat.color.setHex(0x9cecff);
-  starNearMat.opacity = 0.65;
+  starMidAMat.color.setHex(0x78e2ff);
+  starMidBMat.color.setHex(0x78e2ff);
+  starMidAMat.opacity = 0.8;
+  starMidBMat.opacity = 0.8;
+  starFarAMat.color.setHex(0x5ab5dd);
+  starFarBMat.color.setHex(0x5ab5dd);
+  starFarAMat.opacity = 0.5;
+  starFarBMat.opacity = 0.5;
+  starNearAMat.color.setHex(0x9cecff);
+  starNearBMat.color.setHex(0x9cecff);
+  starNearAMat.opacity = 0.65;
+  starNearBMat.opacity = 0.65;
   hazeMat.color.setHex(0x113247);
   hazeMat.opacity = 0.28;
   hazeFarMat.color.setHex(0x0d2842);

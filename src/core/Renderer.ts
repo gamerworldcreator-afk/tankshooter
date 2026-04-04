@@ -134,24 +134,25 @@ export class Renderer {
     const cameraX = this.camera.position.x;
     const cameraY = this.camera.position.y;
 
-    const starsFar = this.scene.getObjectByName('bgStarsFar');
-    if (starsFar) {
-      starsFar.position.y = Math.sin(t * 0.18) * 0.9;
-      starsFar.position.x = cameraX * -0.05;
-      starsFar.rotation.z = t * 0.006;
-    }
-    const starsMid = this.scene.getObjectByName('bgStars');
-    if (starsMid) {
-      starsMid.position.y = Math.sin(t * 0.32) * 0.75;
-      starsMid.position.x = cameraX * -0.09;
-      starsMid.rotation.z = t * 0.01;
-    }
-    const starsNear = this.scene.getObjectByName('bgStarsNear');
-    if (starsNear) {
-      starsNear.position.y = Math.sin(t * 0.54) * 0.65;
-      starsNear.position.x = cameraX * -0.14;
-      starsNear.rotation.z = -t * 0.016;
-    }
+    const animateDual = (baseName: string, speed: number, parallaxX: number, spin: number): void => {
+      const a = this.scene.getObjectByName(`${baseName}A`);
+      const b = this.scene.getObjectByName(`${baseName}B`);
+      if (!a || !b) {
+        return;
+      }
+      const gap = Number(a.userData.parallaxGapY ?? b.userData.parallaxGapY ?? 22);
+      const scroll = (t * speed) % gap;
+      a.position.y = -scroll;
+      b.position.y = -scroll + gap;
+      a.position.x = cameraX * parallaxX;
+      b.position.x = cameraX * parallaxX;
+      a.rotation.z = t * spin;
+      b.rotation.z = t * spin;
+    };
+
+    animateDual('bgStarsFar', 0.9, -0.05, 0.004);
+    animateDual('bgStarsMid', 1.8, -0.1, 0.008);
+    animateDual('bgStarsNear', 3.1, -0.16, -0.013);
 
     const hazeFar = this.scene.getObjectByName('bgHazeFar');
     if (hazeFar) {
