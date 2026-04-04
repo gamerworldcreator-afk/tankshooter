@@ -2,11 +2,11 @@ import { gameStore } from '../store/gameStore';
 import type { System, World } from '../core/World';
 
 const BULLET_DAMAGE = 22;
-const POWER_BULLET_DAMAGE = 140;
+const POWER_BULLET_DAMAGE = 74;
 const TANKER_COLLISION_DAMAGE = 14;
 const ENEMY_BULLET_DAMAGE = 10;
 const FABRICATOR_DAMAGE = 9;
-const POWER_FABRICATOR_DAMAGE = 88;
+const POWER_FABRICATOR_DAMAGE = 42;
 
 export class PhysicsSystem implements System {
   public readonly priority = 2;
@@ -264,13 +264,6 @@ export class PhysicsSystem implements System {
     if (!hp) {
       return;
     }
-    if (world.powerLives > 0) {
-      world.powerLives -= 1;
-      world.heroShieldMs = 6200;
-      hp.current = Math.max(hp.current, 32);
-      world.feedbackQueue.push({ kind: 'explosion', magnitude: 0.22, haptics: [28, 14, 28] });
-      return;
-    }
     world.applyDamage(world.tankerEntity, damage);
   }
 
@@ -281,13 +274,12 @@ export class PhysicsSystem implements System {
       world.heroPowerPoints -= world.powerPointThreshold;
       grants += 1;
       // Strict bucket order:
-      // 1) bullets (max 5) -> 2) lives (max 3) -> 3) vanish (max 3)
-      if (world.powerShotsRemaining < 5) {
+      // 1) bullets (max 3) -> 2) lives (max 3 grants per stage)
+      if (world.powerShotsRemaining < 3) {
         world.powerShotsRemaining += 1;
-      } else if (world.powerLives < 3) {
+      } else if (world.powerLives < 3 && world.livesGrantedThisStage < 3) {
         world.powerLives += 1;
-      } else if (world.powerVanishCharges < 3) {
-        world.powerVanishCharges += 1;
+        world.livesGrantedThisStage += 1;
       } else {
         world.heroPowerPoints = world.powerPointThreshold;
         break;

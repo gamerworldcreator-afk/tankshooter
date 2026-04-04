@@ -158,6 +158,19 @@ export class Renderer {
       }
     }
 
+    const sparks = this.scene.getObjectByName('bgSparks');
+    if (sparks) {
+      const loop = 24;
+      sparks.position.y = -12 + (t * (8.2 + thrill * 3.4)) % loop;
+      sparks.position.x = cameraX * -0.14 + Math.sin(t * 1.4) * 0.5;
+      sparks.rotation.z = -t * 0.03;
+      if (sparks instanceof THREE.Points && sparks.material instanceof THREE.PointsMaterial) {
+        const burst = Math.max(0, Math.sin(t * 1.9));
+        sparks.material.opacity = 0.1 + burst * 0.22;
+        sparks.material.size = 0.085 + burst * 0.08;
+      }
+    }
+
     const hazeFar = this.scene.getObjectByName('bgHazeFar');
     if (hazeFar) {
       const loop = 20;

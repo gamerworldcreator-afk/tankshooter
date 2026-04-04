@@ -77,6 +77,15 @@ export class SpawnSystem implements System {
       world.input.powerRequested = false;
     }
 
+    if (world.phase === 'playing' && world.input.lifeRequested) {
+      world.input.lifeRequested = false;
+      if (world.powerLives > 0 && world.heroShieldMs <= 0) {
+        world.powerLives -= 1;
+        world.heroShieldMs = 6200;
+        world.feedbackQueue.push({ kind: 'explosion', magnitude: 0.18, haptics: [20, 14, 20] });
+      }
+    }
+
     if (world.phase === 'playing' && world.input.vanishRequested) {
       world.input.vanishRequested = false;
       if (world.powerVanishCharges > 0 && this.vanishPulseMs <= 0) {

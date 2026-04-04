@@ -82,6 +82,23 @@ function createBackdrop(scene: THREE.Scene): void {
   points.name = 'bgStars';
   scene.add(points);
 
+  const sparks = new THREE.BufferGeometry();
+  const sparkCount = 110;
+  const sparkVertices = new Float32Array(sparkCount * 3);
+  for (let i = 0; i < sparkCount; i += 1) {
+    sparkVertices[i * 3] = (Math.random() - 0.5) * 24;
+    sparkVertices[i * 3 + 1] = (Math.random() - 0.5) * 24;
+    sparkVertices[i * 3 + 2] = -4.8 - Math.random() * 8;
+  }
+  sparks.setAttribute('position', new THREE.BufferAttribute(sparkVertices, 3));
+  const sparkPoints = new THREE.Points(
+    sparks,
+    new THREE.PointsMaterial({ color: 0xffc79c, size: 0.095, transparent: true, opacity: 0.14 })
+  );
+  sparkPoints.name = 'bgSparks';
+  sparkPoints.layers.enable(BLOOM_LAYER);
+  scene.add(sparkPoints);
+
   const hazeFar = new THREE.Mesh(
     new THREE.PlaneGeometry(44, 28),
     new THREE.MeshBasicMaterial({
@@ -723,6 +740,10 @@ function bindInput(
   controls.powerButton.addEventListener('pointerleave', () => {
     world.input.powerRequested = false;
   });
+  controls.lifeButton.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    world.input.lifeRequested = true;
+  });
   controls.vanishButton.addEventListener('pointerdown', (event) => {
     event.preventDefault();
     world.input.vanishRequested = true;
@@ -837,7 +858,7 @@ function bindInput(
       event.preventDefault();
     }
     if (event.code === 'KeyL') {
-      world.input.vanishRequested = true;
+      world.input.lifeRequested = true;
       event.preventDefault();
     }
   });
@@ -852,13 +873,14 @@ function bindInput(
       world.input.powerRequested = false;
     }
     if (event.code === 'KeyL') {
-      world.input.vanishRequested = false;
+      world.input.lifeRequested = false;
     }
   });
   window.addEventListener('blur', () => {
     world.input.shootHeld = false;
     world.input.moveAxisX = 0;
     world.input.powerRequested = false;
+    world.input.lifeRequested = false;
     world.input.vanishRequested = false;
   });
 
@@ -868,6 +890,12 @@ function bindInput(
       controls.powerButton.textContent = `⚡${state.powerShotsRemaining}`;
     } else {
       controls.powerButton.style.display = 'none';
+    }
+    if (state.powerLives > 0) {
+      controls.lifeButton.style.display = 'inline-flex';
+      controls.lifeButton.textContent = `🛡${state.powerLives}`;
+    } else {
+      controls.lifeButton.style.display = 'none';
     }
     if (state.powerVanishCharges > 0) {
       controls.vanishButton.style.display = 'inline-flex';
@@ -887,6 +915,7 @@ function createTouchControls(app: HTMLElement): {
   fireButton: HTMLButtonElement;
   pulseButton: HTMLButtonElement;
   powerButton: HTMLButtonElement;
+  lifeButton: HTMLButtonElement;
   vanishButton: HTMLButtonElement;
 } {
   const controlsRoot = document.createElement('div');
@@ -973,6 +1002,25 @@ function createTouchControls(app: HTMLElement): {
   powerButton.style.display = 'none';
   actionColumn.appendChild(powerButton);
 
+  const lifeButton = document.createElement('button');
+  lifeButton.textContent = '🛡';
+  lifeButton.style.width = '52px';
+  lifeButton.style.height = '52px';
+  lifeButton.style.borderRadius = '999px';
+  lifeButton.style.border = '1px solid rgba(158, 247, 255, 0.92)';
+  lifeButton.style.color = '#e9fcff';
+  lifeButton.style.fontWeight = '800';
+  lifeButton.style.fontSize = '18px';
+  lifeButton.style.letterSpacing = '0';
+  lifeButton.style.background =
+    'radial-gradient(circle at 36% 28%, rgba(195, 248, 255, 0.82), rgba(34, 116, 137, 0.7) 72%, rgba(14, 59, 70, 0.84) 100%)';
+  lifeButton.style.backdropFilter = 'blur(10px)';
+  lifeButton.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.35), 0 0 12px rgba(132, 246, 255, 0.3)';
+  lifeButton.style.pointerEvents = 'auto';
+  lifeButton.style.touchAction = 'none';
+  lifeButton.style.display = 'none';
+  actionColumn.appendChild(lifeButton);
+
   const vanishButton = document.createElement('button');
   vanishButton.textContent = '✦';
   vanishButton.style.width = '52px';
@@ -1012,7 +1060,7 @@ function createTouchControls(app: HTMLElement): {
   fireButton.style.touchAction = 'none';
   actionColumn.appendChild(fireButton);
 
-  return { root: controlsRoot, movePad, stick, fireButton, pulseButton, powerButton, vanishButton };
+  return { root: controlsRoot, movePad, stick, fireButton, pulseButton, powerButton, lifeButton, vanishButton };
 }
 
 function createSettingsPage(
@@ -1121,6 +1169,50 @@ function createSettingsPage(
   avatarGrid.style.gridTemplateColumns = 'repeat(3, minmax(0, 1fr))';
   avatarGrid.style.gap = '8px';
   sectionAvatar.appendChild(avatarGrid);
+
+  const previewWrap = document.createElement('div');
+  previewWrap.style.border = '1px solid rgba(126, 220, 255, 0.45)';
+  previewWrap.style.borderRadius = '12px';
+  previewWrap.style.padding = '8px';
+  previewWrap.style.background = 'rgba(8, 22, 31, 0.72)';
+  previewWrap.style.display = 'grid';
+  previewWrap.style.gap = '6px';
+  panel.appendChild(previewWrap);
+  const previewLabel = document.createElement('div');
+  previewLabel.textContent = 'Preview';
+  previewLabel.style.color = '#c8f2ff';
+  previewLabel.style.fontSize = '11px';
+  previewLabel.style.fontWeight = '700';
+  previewLabel.style.letterSpacing = '0.05em';
+  previewWrap.appendChild(previewLabel);
+  const previewScene = document.createElement('div');
+  previewScene.style.height = '84px';
+  previewScene.style.borderRadius = '10px';
+  previewScene.style.position = 'relative';
+  previewScene.style.overflow = 'hidden';
+  previewWrap.appendChild(previewScene);
+  const previewStars = document.createElement('div');
+  previewStars.style.position = 'absolute';
+  previewStars.style.inset = '0';
+  previewStars.style.backgroundSize = '18px 18px';
+  previewStars.style.opacity = '0.4';
+  previewStars.style.animation = 'previewDrift 7s linear infinite';
+  previewScene.appendChild(previewStars);
+  const previewHero = document.createElement('div');
+  previewHero.textContent = '▲';
+  previewHero.style.position = 'absolute';
+  previewHero.style.left = '50%';
+  previewHero.style.bottom = '10px';
+  previewHero.style.transform = 'translateX(-50%)';
+  previewHero.style.fontSize = '22px';
+  previewHero.style.filter = 'drop-shadow(0 0 8px rgba(180, 240, 255, 0.55))';
+  previewHero.style.animation = 'previewBob 1.7s ease-in-out infinite';
+  previewScene.appendChild(previewHero);
+  const previewTitle = document.createElement('div');
+  previewTitle.style.color = '#d8f7ff';
+  previewTitle.style.fontSize = '11px';
+  previewTitle.style.letterSpacing = '0.04em';
+  previewWrap.appendChild(previewTitle);
 
   const footer = document.createElement('div');
   footer.style.display = 'flex';
@@ -1248,6 +1340,25 @@ function createSettingsPage(
     for (const item of avatarButtons) {
       optionStyle(item.button, item.preset === currentAvatar);
     }
+    const previewBgMap: Record<BackgroundPreset, string> = {
+      nebula:
+        'radial-gradient(circle at 18% 22%, rgba(85, 214, 255, 0.45), rgba(85, 214, 255, 0) 44%), radial-gradient(circle at 80% 78%, rgba(255, 164, 98, 0.32), rgba(255, 164, 98, 0) 46%), linear-gradient(165deg, #091823 0%, #060d15 70%, #091019 100%)',
+      sunsetGrid:
+        'radial-gradient(circle at 18% 22%, rgba(255, 149, 112, 0.48), rgba(255, 149, 112, 0) 44%), radial-gradient(circle at 80% 78%, rgba(255, 201, 122, 0.32), rgba(255, 201, 122, 0) 46%), linear-gradient(165deg, #220f17 0%, #140a10 70%, #111018 100%)',
+      deepVoid:
+        'radial-gradient(circle at 18% 22%, rgba(107, 146, 255, 0.42), rgba(107, 146, 255, 0) 44%), radial-gradient(circle at 80% 78%, rgba(118, 140, 255, 0.28), rgba(118, 140, 255, 0) 46%), linear-gradient(165deg, #060a18 0%, #050915 70%, #070d17 100%)'
+    };
+    previewScene.style.background = previewBgMap[currentBackground];
+    previewStars.style.backgroundImage =
+      'radial-gradient(circle, rgba(218, 245, 255, 0.95) 0 1px, rgba(255,255,255,0) 1.5px)';
+    const previewHeroMap: Record<HeroAvatarPreset, { color: string; glow: string }> = {
+      vanguard: { color: '#9be8ff', glow: 'rgba(144, 226, 255, 0.65)' },
+      spectre: { color: '#aab5ff', glow: 'rgba(160, 170, 255, 0.68)' },
+      ember: { color: '#ffd1a0', glow: 'rgba(255, 188, 131, 0.7)' }
+    };
+    previewHero.style.color = previewHeroMap[currentAvatar].color;
+    previewHero.style.filter = `drop-shadow(0 0 8px ${previewHeroMap[currentAvatar].glow})`;
+    previewTitle.textContent = `${currentBackground.toUpperCase()} • ${currentAvatar.toUpperCase()}`;
   };
   refreshButtons();
 
@@ -1270,14 +1381,17 @@ function createSettingsPage(
 
 function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): void {
   const stars = scene.getObjectByName('bgStars');
+  const sparks = scene.getObjectByName('bgSparks');
   const haze = scene.getObjectByName('bgHaze');
   const hazeFar = scene.getObjectByName('bgHazeFar');
   const starMat = stars instanceof THREE.Points ? stars.material : null;
+  const sparkMat = sparks instanceof THREE.Points ? sparks.material : null;
   const hazeMat = haze instanceof THREE.Mesh ? haze.material : null;
   const hazeFarMat = hazeFar instanceof THREE.Mesh ? hazeFar.material : null;
 
   if (
     !(starMat instanceof THREE.PointsMaterial) ||
+    !(sparkMat instanceof THREE.PointsMaterial) ||
     !(hazeMat instanceof THREE.MeshBasicMaterial) ||
     !(hazeFarMat instanceof THREE.MeshBasicMaterial)
   ) {
@@ -1288,6 +1402,8 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
     scene.background = new THREE.Color(0x120b14);
     starMat.color.setHex(0xffb08a);
     starMat.opacity = 0.72;
+    sparkMat.color.setHex(0xffbf93);
+    sparkMat.opacity = 0.18;
     hazeMat.color.setHex(0x4f2035);
     hazeMat.opacity = 0.3;
     hazeFarMat.color.setHex(0x3a1831);
@@ -1301,6 +1417,8 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
     scene.background = new THREE.Color(0x02040a);
     starMat.color.setHex(0x88b9ff);
     starMat.opacity = 0.64;
+    sparkMat.color.setHex(0x9dc6ff);
+    sparkMat.opacity = 0.13;
     hazeMat.color.setHex(0x0f1d42);
     hazeMat.opacity = 0.18;
     hazeFarMat.color.setHex(0x0a1331);
@@ -1313,6 +1431,8 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
   scene.background = new THREE.Color(0x05080d);
   starMat.color.setHex(0x78e2ff);
   starMat.opacity = 0.8;
+  sparkMat.color.setHex(0xffc79c);
+  sparkMat.opacity = 0.14;
   hazeMat.color.setHex(0x113247);
   hazeMat.opacity = 0.28;
   hazeFarMat.color.setHex(0x0d2842);
@@ -1439,10 +1559,12 @@ function resetActorsForStage(world: World, stage: 1 | 2 | 3 | 4 | 5, healHero: b
   world.powerShotsRemaining = 0;
   world.powerLives = 0;
   world.powerVanishCharges = 0;
+  world.livesGrantedThisStage = 0;
   world.heroShieldMs = 0;
   world.bossExposeMs = 0;
   world.bossRetreatMs = 0;
   world.input.powerRequested = false;
+  world.input.lifeRequested = false;
   world.input.vanishRequested = false;
 }
 
@@ -1464,6 +1586,16 @@ function createIntroPage(
   intro.style.backdropFilter = 'blur(5px)';
   intro.style.overflow = 'hidden';
   app.appendChild(intro);
+
+  const introStars = document.createElement('div');
+  introStars.style.position = 'absolute';
+  introStars.style.inset = '-20%';
+  introStars.style.backgroundImage =
+    'radial-gradient(circle, rgba(209, 240, 255, 0.9) 0 1px, rgba(255,255,255,0) 1.7px)';
+  introStars.style.backgroundSize = '18px 18px';
+  introStars.style.opacity = '0.34';
+  introStars.style.animation = 'introStarDrift 22s linear infinite';
+  intro.appendChild(introStars);
 
   const parallaxA = document.createElement('div');
   parallaxA.style.position = 'absolute';
@@ -1488,6 +1620,30 @@ function createIntroPage(
   parallaxB.style.pointerEvents = 'none';
   parallaxB.style.animation = 'introFloatB 10s ease-in-out infinite';
   intro.appendChild(parallaxB);
+
+  const heroAccent = document.createElement('div');
+  heroAccent.style.position = 'absolute';
+  heroAccent.style.width = '140px';
+  heroAccent.style.height = '140px';
+  heroAccent.style.right = '10%';
+  heroAccent.style.top = '14%';
+  heroAccent.style.borderRadius = '50%';
+  heroAccent.style.border = '1px solid rgba(132, 228, 255, 0.5)';
+  heroAccent.style.boxShadow = '0 0 0 2px rgba(126, 225, 255, 0.16), 0 0 28px rgba(115, 220, 255, 0.26)';
+  heroAccent.style.animation = 'introHalo 4.2s ease-in-out infinite';
+  intro.appendChild(heroAccent);
+
+  const heroGlyph = document.createElement('div');
+  heroGlyph.textContent = '▲';
+  heroGlyph.style.position = 'absolute';
+  heroGlyph.style.left = '50%';
+  heroGlyph.style.top = '50%';
+  heroGlyph.style.transform = 'translate(-50%, -50%)';
+  heroGlyph.style.color = '#c9f6ff';
+  heroGlyph.style.fontSize = '34px';
+  heroGlyph.style.textShadow = '0 0 18px rgba(131, 226, 255, 0.62)';
+  heroGlyph.style.animation = 'introShipBob 2.4s ease-in-out infinite';
+  heroAccent.appendChild(heroGlyph);
 
   const panel = document.createElement('div');
   panel.style.width = 'min(92vw, 520px)';
@@ -1552,6 +1708,14 @@ function createIntroPage(
     'Stage 1 eases you in. Each stage adds new enemy patterns, boss attacks, and fantasy hazards.';
   panel.appendChild(stageHint);
 
+  const signal = document.createElement('div');
+  signal.textContent = 'Signal Stabilized • Fleet Link Active';
+  signal.style.fontSize = '11px';
+  signal.style.color = 'rgba(176, 240, 255, 0.9)';
+  signal.style.letterSpacing = '0.05em';
+  signal.style.animation = 'introSignal 1.8s ease-in-out infinite';
+  panel.appendChild(signal);
+
   settingsButton.addEventListener('click', () => openSettings());
   startButton.addEventListener('click', () => {
     closeSettings();
@@ -1579,6 +1743,34 @@ function createHudOverlay(app: HTMLElement, world: World): void {
         0% { transform: translate(0px, 0px); }
         50% { transform: translate(-24px, -16px); }
         100% { transform: translate(0px, 0px); }
+      }
+      @keyframes introStarDrift {
+        0% { transform: translateY(0px); }
+        100% { transform: translateY(60px); }
+      }
+      @keyframes introHalo {
+        0% { transform: scale(0.94); opacity: 0.72; }
+        50% { transform: scale(1.06); opacity: 0.95; }
+        100% { transform: scale(0.94); opacity: 0.72; }
+      }
+      @keyframes introShipBob {
+        0% { transform: translate(-50%, -50%) translateY(0px); }
+        50% { transform: translate(-50%, -50%) translateY(-6px); }
+        100% { transform: translate(-50%, -50%) translateY(0px); }
+      }
+      @keyframes introSignal {
+        0% { opacity: 0.55; }
+        50% { opacity: 1; }
+        100% { opacity: 0.55; }
+      }
+      @keyframes previewDrift {
+        0% { transform: translateY(0px); }
+        100% { transform: translateY(14px); }
+      }
+      @keyframes previewBob {
+        0% { transform: translateX(-50%) translateY(0px); }
+        50% { transform: translateX(-50%) translateY(-4px); }
+        100% { transform: translateX(-50%) translateY(0px); }
       }
       @keyframes blastRing {
         0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0.85; }

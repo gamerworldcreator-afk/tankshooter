@@ -85,6 +85,7 @@ export class World {
     shootHeld: false,
     pulseRequested: false,
     powerRequested: false,
+    lifeRequested: false,
     vanishRequested: false
   };
 
@@ -104,6 +105,7 @@ export class World {
   public powerShotsRemaining = 0;
   public powerLives = 0;
   public powerVanishCharges = 0;
+  public livesGrantedThisStage = 0;
   public heroShieldMs = 0;
   public bossExposeMs = 0;
   public bossRetreatMs = 0;
