@@ -133,24 +133,44 @@ export class Renderer {
     const t = this.world.timeMs * 0.001;
     const cameraX = this.camera.position.x;
     const cameraY = this.camera.position.y;
+    const stage1Flight = this.world.currentStage === 1;
 
     const stars = this.scene.getObjectByName('bgStars');
     if (stars) {
-      stars.position.y = Math.sin(t * 0.42) * 0.8;
+      if (stage1Flight) {
+        // Stage 1 has a true vertical travel feel.
+        const loop = 26;
+        const flow = (t * 5.8) % loop;
+        stars.position.y = -13 + flow;
+      } else {
+        stars.position.y = Math.sin(t * 0.42) * 0.8;
+      }
       stars.position.x = cameraX * -0.08;
       stars.rotation.z = t * 0.008;
     }
 
     const hazeFar = this.scene.getObjectByName('bgHazeFar');
     if (hazeFar) {
+      if (stage1Flight) {
+        const loop = 20;
+        const flow = (t * 1.55) % loop;
+        hazeFar.position.y = -10 + flow + cameraY * -0.02;
+      } else {
+        hazeFar.position.y = Math.cos(t * 0.16) * 0.52 + cameraY * -0.02;
+      }
       hazeFar.position.x = Math.sin(t * 0.12) * 0.95 + cameraX * -0.04;
-      hazeFar.position.y = Math.cos(t * 0.16) * 0.52 + cameraY * -0.02;
       hazeFar.rotation.z = Math.sin(t * 0.09) * 0.06;
     }
     const haze = this.scene.getObjectByName('bgHaze');
     if (haze) {
       haze.position.x = Math.cos(t * 0.24) * 0.68 + cameraX * -0.08;
-      haze.position.y = Math.sin(t * 0.28) * 0.4 + cameraY * -0.04;
+      if (stage1Flight) {
+        const loop = 18;
+        const flow = (t * 2.05) % loop;
+        haze.position.y = -9 + flow + cameraY * -0.04;
+      } else {
+        haze.position.y = Math.sin(t * 0.28) * 0.4 + cameraY * -0.04;
+      }
       haze.rotation.z = Math.cos(t * 0.11) * 0.05;
     }
   }

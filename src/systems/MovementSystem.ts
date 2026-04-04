@@ -28,5 +28,14 @@ export class MovementSystem implements System {
       velocity.vx = Math.max(-maxSpeed, Math.min(maxSpeed, deltaX * 8));
     }
     velocity.vy = 0;
+
+    // Stage 1 "flight" feel: keep controls horizontal, but add vertical glide motion.
+    if (world.currentStage === 1) {
+      const t = world.timeMs * 0.001;
+      const baseY = world.arena.minY + 1.18;
+      transform.y = baseY + Math.sin(t * 2.25) * 0.18 + Math.sin(t * 0.95) * 0.08;
+    } else {
+      transform.y = world.arena.minY + 1.05;
+    }
   }
 }
