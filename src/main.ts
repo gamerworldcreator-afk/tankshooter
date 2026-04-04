@@ -59,8 +59,8 @@ async function bootstrap(): Promise<void> {
 
   const loop = new GameLoop(world, renderer);
   watchSessionEnd(loop, world, saved);
-  createIntroPage(app, world, settings.open, () => {
-    startStageCountdown(world);
+  createIntroPage(app, world, settings.open, settings.close, () => {
+    startStageCountdown(world, true);
     loop.start();
   });
 }
@@ -850,7 +850,7 @@ function createSettingsPage(
   const overlay = document.createElement('div');
   overlay.style.position = 'absolute';
   overlay.style.inset = '0';
-  overlay.style.zIndex = '20';
+  overlay.style.zIndex = '50';
   overlay.style.display = 'none';
   overlay.style.background = 'rgba(4, 10, 16, 0.72)';
   overlay.style.backdropFilter = 'blur(10px)';
@@ -1150,11 +1150,12 @@ function applyHeroAvatar(scene: THREE.Scene, preset: HeroAvatarPreset): void {
   wingRight.scale.y = 1;
 }
 
-function startStageCountdown(world: World): void {
+function startStageCountdown(world: World, healHero: boolean): void {
   world.phase = 'countdown';
-  world.stageCountdownMs = 2000;
+  world.stageCountdownMs = 3000;
+  resetActorsForStage(world, world.currentStage, healHero);
   gameStore.getState().setHud({
-    overlayMessage: `Stage ${world.currentStage} incoming`,
+    overlayMessage: `3`,
     showNextStage: false
   });
 }
@@ -1163,35 +1164,49 @@ function prepareNextStage(world: World): void {
   const nextStage = Math.min(world.maxStage, world.currentStage + 1) as 1 | 2 | 3 | 4 | 5;
   world.currentStage = nextStage;
   world.phase = 'countdown';
-  world.stageCountdownMs = 2000;
+  world.stageCountdownMs = 3000;
+  resetActorsForStage(world, nextStage, true);
+  gameStore.getState().setHud({
+    showNextStage: false,
+    overlayMessage: `3`,
+    endState: 'none'
+  });
+}
+
+function resetActorsForStage(world: World, stage: 1 | 2 | 3 | 4 | 5, healHero: boolean): void {
+  const tankerHealth = world.health.get(world.tankerEntity);
+  if (tankerHealth && healHero) {
+    tankerHealth.current = tankerHealth.max;
+  }
 
   const bossHealth = world.health.get(world.fabricatorEntity);
   if (bossHealth) {
     const maxHpByStage = [0, 1200, 1650, 2300, 3200, 4600];
-    bossHealth.max = maxHpByStage[nextStage];
+    bossHealth.max = maxHpByStage[stage];
     bossHealth.current = bossHealth.max;
   }
   const bossTransform = world.transforms.get(world.fabricatorEntity);
   if (bossTransform) {
     bossTransform.y = world.arena.maxY - 1.2;
   }
-  const obstacleRoles: Array<'obstacle' | 'enemyBullet' | 'enemyJet'> = ['obstacle', 'enemyBullet', 'enemyJet'];
+  const obstacleRoles: Array<'obstacle' | 'enemyBullet' | 'enemyJet' | 'bullet'> = [
+    'obstacle',
+    'enemyBullet',
+    'enemyJet',
+    'bullet'
+  ];
   for (const role of obstacleRoles) {
     for (const entity of world.getEntitiesByRole(role)) {
       world.releaseToPool(entity);
     }
   }
-  gameStore.getState().setHud({
-    showNextStage: false,
-    overlayMessage: `Stage ${nextStage} incoming`,
-    endState: 'none'
-  });
 }
 
 function createIntroPage(
   app: HTMLElement,
   world: World,
   openSettings: () => void,
+  closeSettings: () => void,
   onStart: () => void
 ): void {
   const intro = document.createElement('div');
@@ -1203,7 +1218,32 @@ function createIntroPage(
   intro.style.background =
     'radial-gradient(circle at 20% 25%, rgba(78, 196, 255, 0.14), rgba(10, 25, 36, 0.86) 50%), radial-gradient(circle at 80% 78%, rgba(255, 149, 92, 0.16), rgba(8, 15, 24, 0.94) 52%)';
   intro.style.backdropFilter = 'blur(5px)';
+  intro.style.overflow = 'hidden';
   app.appendChild(intro);
+
+  const parallaxA = document.createElement('div');
+  parallaxA.style.position = 'absolute';
+  parallaxA.style.width = '480px';
+  parallaxA.style.height = '480px';
+  parallaxA.style.left = '-140px';
+  parallaxA.style.top = '-120px';
+  parallaxA.style.borderRadius = '50%';
+  parallaxA.style.background = 'radial-gradient(circle, rgba(97, 218, 255, 0.22), rgba(10, 35, 52, 0.05) 70%)';
+  parallaxA.style.pointerEvents = 'none';
+  parallaxA.style.animation = 'introFloatA 8s ease-in-out infinite';
+  intro.appendChild(parallaxA);
+
+  const parallaxB = document.createElement('div');
+  parallaxB.style.position = 'absolute';
+  parallaxB.style.width = '420px';
+  parallaxB.style.height = '420px';
+  parallaxB.style.right = '-120px';
+  parallaxB.style.bottom = '-130px';
+  parallaxB.style.borderRadius = '50%';
+  parallaxB.style.background = 'radial-gradient(circle, rgba(255, 172, 120, 0.2), rgba(58, 21, 10, 0.05) 70%)';
+  parallaxB.style.pointerEvents = 'none';
+  parallaxB.style.animation = 'introFloatB 10s ease-in-out infinite';
+  intro.appendChild(parallaxB);
 
   const panel = document.createElement('div');
   panel.style.width = 'min(92vw, 520px)';
@@ -1270,6 +1310,7 @@ function createIntroPage(
 
   settingsButton.addEventListener('click', () => openSettings());
   startButton.addEventListener('click', () => {
+    closeSettings();
     intro.style.display = 'none';
     world.phase = 'countdown';
     onStart();
@@ -1284,6 +1325,20 @@ function createHudOverlay(app: HTMLElement, world: World): void {
       @keyframes pulse {
         from { transform: translate(-50%, -50%) scale(0.98); }
         to { transform: translate(-50%, -50%) scale(1.04); }
+      }
+      @keyframes introFloatA {
+        0% { transform: translate(0px, 0px); }
+        50% { transform: translate(28px, 18px); }
+        100% { transform: translate(0px, 0px); }
+      }
+      @keyframes introFloatB {
+        0% { transform: translate(0px, 0px); }
+        50% { transform: translate(-24px, -16px); }
+        100% { transform: translate(0px, 0px); }
+      }
+      @keyframes blastRing {
+        0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0.85; }
+        100% { transform: translate(-50%, -50%) scale(1.65); opacity: 0; }
       }
     `;
     document.head.appendChild(style);
@@ -1365,6 +1420,19 @@ function createHudOverlay(app: HTMLElement, world: World): void {
   gameOver.textContent = '';
   app.appendChild(gameOver);
 
+  const blastRing = document.createElement('div');
+  blastRing.style.position = 'absolute';
+  blastRing.style.left = '50%';
+  blastRing.style.top = '50%';
+  blastRing.style.width = '120px';
+  blastRing.style.height = '120px';
+  blastRing.style.borderRadius = '50%';
+  blastRing.style.border = '2px solid rgba(155, 235, 255, 0.85)';
+  blastRing.style.pointerEvents = 'none';
+  blastRing.style.display = 'none';
+  blastRing.style.zIndex = '23';
+  app.appendChild(blastRing);
+
   const centerOverlay = document.createElement('div');
   centerOverlay.style.position = 'absolute';
   centerOverlay.style.left = '50%';
@@ -1405,6 +1473,18 @@ function createHudOverlay(app: HTMLElement, world: World): void {
     prepareNextStage(world);
   });
 
+  const gameOverAction = document.createElement('button');
+  gameOverAction.style.height = '38px';
+  gameOverAction.style.padding = '0 14px';
+  gameOverAction.style.border = '1px solid rgba(167, 244, 255, 0.92)';
+  gameOverAction.style.borderRadius = '999px';
+  gameOverAction.style.background = 'linear-gradient(130deg, rgba(58, 169, 212, 0.75), rgba(20, 75, 110, 0.7))';
+  gameOverAction.style.color = '#eaffff';
+  gameOverAction.style.fontWeight = '700';
+  gameOverAction.style.letterSpacing = '0.06em';
+  gameOverAction.style.display = 'none';
+  centerOverlay.appendChild(gameOverAction);
+
   gameStore.subscribe((state) => {
     const tankerPct = Math.max(0, Math.min(100, state.tankerHp));
     tankerBar.fill.style.width = `${tankerPct}%`;
@@ -1417,24 +1497,59 @@ function createHudOverlay(app: HTMLElement, world: World): void {
       gameOver.style.border = '1px solid rgba(129, 255, 214, 0.72)';
       gameOver.style.color = '#defff1';
       gameOver.style.animation = 'pulse 950ms ease-in-out infinite alternate';
+      blastRing.style.border = '2px solid rgba(151, 255, 218, 0.9)';
     } else {
       gameOver.textContent = 'DEFEAT';
       gameOver.style.border = '1px solid rgba(132, 230, 255, 0.6)';
       gameOver.style.color = '#f4fbff';
       gameOver.style.animation = 'pulse 700ms ease-in-out infinite alternate';
+      blastRing.style.border = '2px solid rgba(255, 178, 136, 0.9)';
     }
     gameOver.style.display = state.isGameOver ? 'block' : 'none';
-
-    if (state.showNextStage || world.phase === 'countdown') {
-      centerOverlay.style.display = 'flex';
-      centerLabel.textContent =
-        world.phase === 'countdown'
-          ? `Stage ${world.currentStage} begins in ${Math.max(1, Math.ceil(world.stageCountdownMs / 1000))}`
-          : state.overlayMessage || `Stage ${world.currentStage} Cleared`;
-      nextStageButton.style.display = state.showNextStage ? 'block' : 'none';
-    } else if (!state.isGameOver) {
-      centerOverlay.style.display = 'none';
+    if (state.isGameOver) {
+      blastRing.style.display = 'block';
+      blastRing.style.animation = 'none';
+      void blastRing.offsetWidth;
+      blastRing.style.animation = 'blastRing 580ms ease-out 1';
+    } else {
+      blastRing.style.display = 'none';
     }
+
+    if (state.showNextStage || world.phase === 'countdown' || state.isGameOver) {
+      centerOverlay.style.display = 'flex';
+      if (state.isGameOver) {
+        centerLabel.textContent = state.endState === 'victory' ? 'Mission Complete' : 'Mission Failed';
+      } else if (world.phase === 'countdown') {
+        const sec = Math.max(0, Math.ceil(world.stageCountdownMs / 1000));
+        centerLabel.textContent = sec > 0 ? `${sec}` : 'GO';
+      } else {
+        centerLabel.textContent = state.overlayMessage || `Stage ${world.currentStage} Cleared`;
+      }
+      nextStageButton.style.display = state.showNextStage ? 'block' : 'none';
+      if (state.isGameOver) {
+        gameOverAction.style.display = 'block';
+        gameOverAction.textContent = state.endState === 'victory' ? 'Back To Intro' : 'Retry Stage';
+      } else {
+        gameOverAction.style.display = 'none';
+      }
+    } else {
+      centerOverlay.style.display = 'none';
+      gameOverAction.style.display = 'none';
+    }
+  });
+
+  gameOverAction.addEventListener('click', () => {
+    if (gameStore.getState().endState === 'victory') {
+      window.location.reload();
+      return;
+    }
+    gameStore.getState().setHud({
+      isGameOver: false,
+      endState: 'none',
+      overlayMessage: '',
+      showNextStage: false
+    });
+    startStageCountdown(world, true);
   });
 }
 
@@ -1445,7 +1560,6 @@ function watchSessionEnd(loop: GameLoop, world: World, previous: { highScore: nu
       return;
     }
     committed = true;
-    loop.stop();
     const high = Math.max(previous.highScore, Math.floor(state.score));
     const stage = world.currentStage;
     await sdkSaveProgress({
