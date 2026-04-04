@@ -115,38 +115,6 @@ function createBackdrop(scene: THREE.Scene): void {
   key.position.set(0, 1, 1);
   scene.add(ambient, key);
 
-  const railCanvas = document.createElement('canvas');
-  railCanvas.width = 16;
-  railCanvas.height = 512;
-  const railCtx = railCanvas.getContext('2d');
-  if (railCtx) {
-    const grad = railCtx.createLinearGradient(0, 0, 0, railCanvas.height);
-    grad.addColorStop(0, '#4de0ff');
-    grad.addColorStop(0.5, '#26b2ff');
-    grad.addColorStop(1, '#4fffb0');
-    railCtx.fillStyle = grad;
-    railCtx.fillRect(0, 0, railCanvas.width, railCanvas.height);
-  }
-  const railTexture = new THREE.CanvasTexture(railCanvas);
-  railTexture.colorSpace = THREE.SRGBColorSpace;
-  const railGeometry = new THREE.PlaneGeometry(0.11, 20.5);
-  const leftRail = new THREE.Mesh(
-    railGeometry,
-    new THREE.MeshBasicMaterial({ map: railTexture, transparent: true, opacity: 0.82 })
-  );
-  leftRail.name = 'leftRail';
-  leftRail.position.set(-8.22, 0, -0.2);
-  leftRail.layers.enable(BLOOM_LAYER);
-  leftRail.onBeforeRender = (_r, _s, _c, _g, material) => {
-    if (material instanceof THREE.MeshBasicMaterial) {
-      material.opacity = 0.72 + Math.sin(performance.now() * 0.004) * 0.12;
-    }
-  };
-
-  const rightRail = leftRail.clone();
-  rightRail.name = 'rightRail';
-  rightRail.position.x = 8.22;
-  scene.add(leftRail, rightRail);
 }
 
 function syncArenaBounds(world: World, renderer: Renderer): void {
@@ -164,7 +132,7 @@ function syncArenaBounds(world: World, renderer: Renderer): void {
   const tankerHalfW = tankerHitbox ? tankerHitbox.w * 0.5 : 0.45;
   if (tanker) {
     tanker.x = THREE.MathUtils.clamp(tanker.x, world.arena.minX + tankerHalfW, world.arena.maxX - tankerHalfW);
-    tanker.y = world.arena.minY + 1.05;
+    tanker.y = world.arena.minY + 0.82;
   }
   const pulseWave = world.getEntitiesByRole('pulseWave', false)[0];
   const pulseTransform = pulseWave ? world.transforms.get(pulseWave) : undefined;
@@ -178,14 +146,6 @@ function syncArenaBounds(world: World, renderer: Renderer): void {
     boss.y = world.arena.maxY - 1.2;
   }
 
-  const leftRail = renderer.scene.getObjectByName('leftRail');
-  const rightRail = renderer.scene.getObjectByName('rightRail');
-  if (leftRail) {
-    leftRail.position.x = world.arena.minX;
-  }
-  if (rightRail) {
-    rightRail.position.x = world.arena.maxX;
-  }
 }
 
 function buildEntities(world: World, scene: THREE.Scene): void {
@@ -194,7 +154,7 @@ function buildEntities(world: World, scene: THREE.Scene): void {
   world.addComponent(tanker, {
     type: 'Transform',
     x: 0,
-    y: world.arena.minY + 1.05,
+    y: world.arena.minY + 0.82,
     z: 0,
     rotX: 0,
     rotY: 0,
@@ -243,7 +203,14 @@ function buildEntities(world: World, scene: THREE.Scene): void {
   core.name = 'heroCore';
   core.position.set(0, 0.28, 0.16);
   core.layers.enable(BLOOM_LAYER);
-  tankerMesh.add(chassis, wingLeft, wingRight, core);
+  const shield = new THREE.Mesh(
+    new THREE.SphereGeometry(0.78, 18, 18),
+    new THREE.MeshBasicMaterial({ color: 0x9deeff, transparent: true, opacity: 0.0 })
+  );
+  shield.name = 'heroShield';
+  shield.visible = false;
+  shield.layers.enable(BLOOM_LAYER);
+  tankerMesh.add(chassis, wingLeft, wingRight, core, shield);
   tankerMesh.layers.enable(BLOOM_LAYER);
   scene.add(tankerMesh);
   world.addComponent(tanker, { type: 'Render', mesh: tankerMesh, bloomLayer: BLOOM_LAYER });
@@ -351,7 +318,7 @@ function buildEntities(world: World, scene: THREE.Scene): void {
   world.addComponent(pulseWave, {
     type: 'Transform',
     x: 0,
-    y: world.arena.minY + 1.05,
+    y: world.arena.minY + 0.82,
     z: 0.03,
     rotX: 0,
     rotY: 0,
@@ -447,20 +414,29 @@ function createPooledEntities(world: World, scene: THREE.Scene): void {
     });
     world.addComponent(e, { type: 'Velocity', vx: 0, vy: 0, vz: 0 });
     world.addComponent(e, { type: 'Poolable', poolKey: 'powerBullet', active: false });
-    const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.2, 12, 12),
-      new THREE.MeshBasicMaterial({ color: 0xffe29b, transparent: true, opacity: 0.95 })
+    const bolt = new THREE.Group();
+    const spear = new THREE.Mesh(
+      new THREE.ConeGeometry(0.18, 0.72, 10),
+      new THREE.MeshBasicMaterial({ color: 0xfff0b7, transparent: true, opacity: 0.96 })
     );
-    const halo = new THREE.Mesh(
-      new THREE.RingGeometry(0.25, 0.36, 24),
-      new THREE.MeshBasicMaterial({ color: 0xffc26d, transparent: true, opacity: 0.75, side: THREE.DoubleSide })
+    spear.rotation.z = Math.PI;
+    spear.position.y = 0.25;
+    const tail = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.14, 0.58, 10),
+      new THREE.MeshBasicMaterial({ color: 0xffc871, transparent: true, opacity: 0.82 })
     );
-    halo.layers.enable(BLOOM_LAYER);
-    mesh.add(halo);
-    mesh.visible = false;
-    mesh.layers.enable(BLOOM_LAYER);
-    scene.add(mesh);
-    world.addComponent(e, { type: 'Render', mesh, bloomLayer: BLOOM_LAYER });
+    tail.position.y = -0.25;
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.23, 0.03, 8, 30),
+      new THREE.MeshBasicMaterial({ color: 0xffdf9d, transparent: true, opacity: 0.7 })
+    );
+    ring.rotation.x = Math.PI * 0.5;
+    ring.layers.enable(BLOOM_LAYER);
+    bolt.add(spear, tail, ring);
+    bolt.visible = false;
+    bolt.layers.enable(BLOOM_LAYER);
+    scene.add(bolt);
+    world.addComponent(e, { type: 'Render', mesh: bolt, bloomLayer: BLOOM_LAYER });
     world.hitboxes.set(e, { w: 0.42, h: 0.42 });
     powerBullets.push(e);
   }
@@ -590,7 +566,7 @@ function createPooledEntities(world: World, scene: THREE.Scene): void {
 
     const jet = new THREE.Group();
     const body = new THREE.Mesh(
-      new THREE.ConeGeometry(0.24, 0.82, 10),
+      new THREE.ConeGeometry(0.22, 0.92, 10),
       new THREE.MeshStandardMaterial({
         color: 0x88ffd7,
         emissive: 0x1d6e54,
@@ -601,19 +577,26 @@ function createPooledEntities(world: World, scene: THREE.Scene): void {
     );
     body.rotation.x = Math.PI;
     const wingA = new THREE.Mesh(
-      new THREE.BoxGeometry(0.7, 0.08, 0.15),
+      new THREE.BoxGeometry(0.74, 0.07, 0.14),
       new THREE.MeshStandardMaterial({ color: 0x9effdf, emissive: 0x255f4e, emissiveIntensity: 0.64 })
     );
-    wingA.position.y = -0.05;
+    wingA.name = 'enemyJetWingA';
+    wingA.position.y = -0.04;
     const wingB = wingA.clone();
+    wingB.name = 'enemyJetWingB';
     wingB.rotation.z = Math.PI / 2;
+    const wingCore = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xc6ffee, transparent: true, opacity: 0.8 })
+    );
+    wingCore.layers.enable(BLOOM_LAYER);
     const glow = new THREE.Mesh(
       new THREE.SphereGeometry(0.1, 8, 8),
       new THREE.MeshBasicMaterial({ color: 0xb4ffe6, transparent: true, opacity: 0.82 })
     );
     glow.position.y = -0.36;
     glow.layers.enable(BLOOM_LAYER);
-    jet.add(body, wingA, wingB, glow);
+    jet.add(body, wingA, wingB, wingCore, glow);
     jet.visible = false;
     jet.layers.enable(BLOOM_LAYER);
     scene.add(jet);
@@ -740,6 +723,10 @@ function bindInput(
   controls.powerButton.addEventListener('pointerleave', () => {
     world.input.powerRequested = false;
   });
+  controls.vanishButton.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    world.input.vanishRequested = true;
+  });
 
   let movePointerId: number | null = null;
   const maxTravel = 20;
@@ -849,6 +836,10 @@ function bindInput(
       world.input.powerRequested = true;
       event.preventDefault();
     }
+    if (event.code === 'KeyL') {
+      world.input.vanishRequested = true;
+      event.preventDefault();
+    }
   });
   window.addEventListener('keyup', (event) => {
     if (event.code === 'ArrowLeft' || event.code === 'KeyA' || event.code === 'ArrowRight' || event.code === 'KeyD') {
@@ -860,11 +851,15 @@ function bindInput(
     if (event.code === 'KeyK') {
       world.input.powerRequested = false;
     }
+    if (event.code === 'KeyL') {
+      world.input.vanishRequested = false;
+    }
   });
   window.addEventListener('blur', () => {
     world.input.shootHeld = false;
     world.input.moveAxisX = 0;
     world.input.powerRequested = false;
+    world.input.vanishRequested = false;
   });
 
   const syncPowerButton = (state: ReturnType<typeof gameStore.getState>): void => {
@@ -873,6 +868,12 @@ function bindInput(
       controls.powerButton.textContent = `⚡${state.powerShotsRemaining}`;
     } else {
       controls.powerButton.style.display = 'none';
+    }
+    if (state.powerVanishCharges > 0) {
+      controls.vanishButton.style.display = 'inline-flex';
+      controls.vanishButton.textContent = `✦${state.powerVanishCharges}`;
+    } else {
+      controls.vanishButton.style.display = 'none';
     }
   };
   syncPowerButton(gameStore.getState());
@@ -886,6 +887,7 @@ function createTouchControls(app: HTMLElement): {
   fireButton: HTMLButtonElement;
   pulseButton: HTMLButtonElement;
   powerButton: HTMLButtonElement;
+  vanishButton: HTMLButtonElement;
 } {
   const controlsRoot = document.createElement('div');
   controlsRoot.style.position = 'absolute';
@@ -971,6 +973,25 @@ function createTouchControls(app: HTMLElement): {
   powerButton.style.display = 'none';
   actionColumn.appendChild(powerButton);
 
+  const vanishButton = document.createElement('button');
+  vanishButton.textContent = '✦';
+  vanishButton.style.width = '52px';
+  vanishButton.style.height = '52px';
+  vanishButton.style.borderRadius = '999px';
+  vanishButton.style.border = '1px solid rgba(184, 219, 255, 0.92)';
+  vanishButton.style.color = '#f0f8ff';
+  vanishButton.style.fontWeight = '800';
+  vanishButton.style.fontSize = '20px';
+  vanishButton.style.letterSpacing = '0';
+  vanishButton.style.background =
+    'radial-gradient(circle at 36% 28%, rgba(215, 236, 255, 0.82), rgba(52, 83, 137, 0.7) 72%, rgba(25, 40, 73, 0.84) 100%)';
+  vanishButton.style.backdropFilter = 'blur(10px)';
+  vanishButton.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.35), 0 0 12px rgba(154, 198, 255, 0.3)';
+  vanishButton.style.pointerEvents = 'auto';
+  vanishButton.style.touchAction = 'none';
+  vanishButton.style.display = 'none';
+  actionColumn.appendChild(vanishButton);
+
   const fireButton = document.createElement('button');
   fireButton.textContent = '◎';
   fireButton.style.width = '64px';
@@ -991,7 +1012,7 @@ function createTouchControls(app: HTMLElement): {
   fireButton.style.touchAction = 'none';
   actionColumn.appendChild(fireButton);
 
-  return { root: controlsRoot, movePad, stick, fireButton, pulseButton, powerButton };
+  return { root: controlsRoot, movePad, stick, fireButton, pulseButton, powerButton, vanishButton };
 }
 
 function createSettingsPage(
@@ -1251,13 +1272,9 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
   const stars = scene.getObjectByName('bgStars');
   const haze = scene.getObjectByName('bgHaze');
   const hazeFar = scene.getObjectByName('bgHazeFar');
-  const leftRail = scene.getObjectByName('leftRail');
-  const rightRail = scene.getObjectByName('rightRail');
   const starMat = stars instanceof THREE.Points ? stars.material : null;
   const hazeMat = haze instanceof THREE.Mesh ? haze.material : null;
   const hazeFarMat = hazeFar instanceof THREE.Mesh ? hazeFar.material : null;
-  const leftMat = leftRail instanceof THREE.Mesh ? leftRail.material : null;
-  const rightMat = rightRail instanceof THREE.Mesh ? rightRail.material : null;
 
   if (
     !(starMat instanceof THREE.PointsMaterial) ||
@@ -1275,14 +1292,6 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
     hazeMat.opacity = 0.3;
     hazeFarMat.color.setHex(0x3a1831);
     hazeFarMat.opacity = 0.27;
-    if (leftMat instanceof THREE.MeshBasicMaterial) {
-      leftMat.color.setHex(0x58d7ff);
-      leftMat.opacity = 0.88;
-    }
-    if (rightMat instanceof THREE.MeshBasicMaterial) {
-      rightMat.color.setHex(0x58d7ff);
-      rightMat.opacity = 0.88;
-    }
     document.body.style.background =
       'radial-gradient(circle at 15% 20%, #6b2d45 0%, rgba(107, 45, 69, 0) 46%), radial-gradient(circle at 84% 78%, #6b4d2c 0%, rgba(107, 77, 44, 0) 42%), linear-gradient(170deg, #10080f 0%, #040406 70%, #0f1218 100%)';
     return;
@@ -1296,14 +1305,6 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
     hazeMat.opacity = 0.18;
     hazeFarMat.color.setHex(0x0a1331);
     hazeFarMat.opacity = 0.2;
-    if (leftMat instanceof THREE.MeshBasicMaterial) {
-      leftMat.color.setHex(0x87b8ff);
-      leftMat.opacity = 0.86;
-    }
-    if (rightMat instanceof THREE.MeshBasicMaterial) {
-      rightMat.color.setHex(0x87b8ff);
-      rightMat.opacity = 0.86;
-    }
     document.body.style.background =
       'radial-gradient(circle at 20% 12%, #102247 0%, rgba(16, 34, 71, 0) 45%), radial-gradient(circle at 82% 88%, #19264f 0%, rgba(25, 38, 79, 0) 46%), linear-gradient(160deg, #02040a 0%, #040914 62%, #0b1524 100%)';
     return;
@@ -1316,14 +1317,6 @@ function applyBackgroundPreset(scene: THREE.Scene, preset: BackgroundPreset): vo
   hazeMat.opacity = 0.28;
   hazeFarMat.color.setHex(0x0d2842);
   hazeFarMat.opacity = 0.24;
-  if (leftMat instanceof THREE.MeshBasicMaterial) {
-    leftMat.color.setHex(0x66e7d2);
-    leftMat.opacity = 0.86;
-  }
-  if (rightMat instanceof THREE.MeshBasicMaterial) {
-    rightMat.color.setHex(0x66e7d2);
-    rightMat.opacity = 0.86;
-  }
   document.body.style.background =
     'radial-gradient(circle at 15% 20%, #1f4a5d 0%, rgba(31, 74, 93, 0) 45%), radial-gradient(circle at 80% 85%, #53341f 0%, rgba(83, 52, 31, 0) 42%), linear-gradient(165deg, #04090d 0%, #020406 65%, #070f15 100%)';
 }
@@ -1440,10 +1433,17 @@ function resetActorsForStage(world: World, stage: 1 | 2 | 3 | 4 | 5, healHero: b
       world.releaseToPool(entity);
     }
   }
-  world.heroCharge = 0;
+  world.heroPowerPoints = 0;
+  world.powerPointThreshold = 55;
   world.heroHitStreak = 0;
   world.powerShotsRemaining = 0;
+  world.powerLives = 0;
+  world.powerVanishCharges = 0;
+  world.heroShieldMs = 0;
+  world.bossExposeMs = 0;
+  world.bossRetreatMs = 0;
   world.input.powerRequested = false;
+  world.input.vanishRequested = false;
 }
 
 function createIntroPage(
@@ -1645,29 +1645,6 @@ function createHudOverlay(app: HTMLElement, world: World): void {
   const bossBar = createBar('Villian', 'linear-gradient(90deg, #9dffd8, #31c692)');
   root.append(tankerBar.wrap, bossBar.wrap);
 
-  const chargeWrap = document.createElement('div');
-  chargeWrap.style.position = 'absolute';
-  chargeWrap.style.left = '50%';
-  chargeWrap.style.top = 'calc(env(safe-area-inset-top, 0px) + 56px)';
-  chargeWrap.style.transform = 'translateX(-50%)';
-  chargeWrap.style.width = 'min(44vw, 170px)';
-  chargeWrap.style.borderRadius = '999px';
-  chargeWrap.style.padding = '4px';
-  chargeWrap.style.border = '1px solid rgba(164, 247, 223, 0.6)';
-  chargeWrap.style.background = 'rgba(7, 22, 29, 0.6)';
-  chargeWrap.style.backdropFilter = 'blur(8px)';
-  chargeWrap.style.zIndex = '13';
-  chargeWrap.style.pointerEvents = 'none';
-  app.appendChild(chargeWrap);
-
-  const chargeFill = document.createElement('div');
-  chargeFill.style.height = '7px';
-  chargeFill.style.borderRadius = '999px';
-  chargeFill.style.width = '0%';
-  chargeFill.style.background = 'linear-gradient(90deg, #8dffd8, #54d8af)';
-  chargeFill.style.boxShadow = '0 0 8px rgba(139, 255, 215, 0.45)';
-  chargeWrap.appendChild(chargeFill);
-
   const gameOver = document.createElement('div');
   gameOver.style.position = 'absolute';
   gameOver.style.top = '50%';
@@ -1755,18 +1732,10 @@ function createHudOverlay(app: HTMLElement, world: World): void {
   gameStore.subscribe((state) => {
     const tankerPct = Math.max(0, Math.min(100, state.tankerHp));
     tankerBar.fill.style.width = `${tankerPct}%`;
-    tankerBar.value.textContent = `${Math.ceil(state.tankerHp)} / 100`;
+    tankerBar.value.textContent = `${Math.ceil(state.tankerHp)} / 100 • 🛡${state.powerLives}`;
     const bossPct = Math.max(0, Math.min(100, (state.bossHp / Math.max(1, state.bossMaxHp)) * 100));
     bossBar.fill.style.width = `${bossPct}%`;
     bossBar.value.textContent = `${Math.ceil(state.bossHp)} / ${Math.ceil(state.bossMaxHp)}`;
-    chargeFill.style.width = `${Math.max(0, Math.min(100, state.heroCharge))}%`;
-    if (state.powerShotsRemaining > 0) {
-      chargeWrap.style.borderColor = 'rgba(156, 255, 217, 0.92)';
-      chargeWrap.style.boxShadow = '0 0 0 1px rgba(160, 255, 222, 0.28), 0 0 16px rgba(94, 214, 170, 0.35)';
-    } else {
-      chargeWrap.style.borderColor = 'rgba(164, 247, 223, 0.6)';
-      chargeWrap.style.boxShadow = 'none';
-    }
     if (state.endState === 'victory') {
       gameOver.textContent = 'VICTORY';
       gameOver.style.border = '1px solid rgba(129, 255, 214, 0.72)';

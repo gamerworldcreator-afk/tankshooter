@@ -2,11 +2,11 @@ import { gameStore } from '../store/gameStore';
 import type { System, World } from '../core/World';
 
 const BULLET_DAMAGE = 22;
-const POWER_BULLET_DAMAGE = 58;
+const POWER_BULLET_DAMAGE = 140;
 const TANKER_COLLISION_DAMAGE = 14;
 const ENEMY_BULLET_DAMAGE = 10;
 const FABRICATOR_DAMAGE = 9;
-const POWER_FABRICATOR_DAMAGE = 26;
+const POWER_FABRICATOR_DAMAGE = 88;
 
 export class PhysicsSystem implements System {
   public readonly priority = 2;
@@ -59,10 +59,19 @@ export class PhysicsSystem implements System {
         const halfW = (world.hitboxes.get(entity)?.w ?? 0.9) * 0.5;
         transform.x = Math.max(world.arena.minX + halfW, Math.min(world.arena.maxX - halfW, transform.x));
       }
-
       const role = world.roles.get(entity);
+      if (role === 'obstacle' || role === 'enemyJet') {
+        const halfW = (world.hitboxes.get(entity)?.w ?? 0.7) * 0.5;
+        if (transform.x < world.arena.minX + halfW) {
+          transform.x = world.arena.minX + halfW;
+          velocity.vx = Math.abs(velocity.vx) * 0.92;
+        } else if (transform.x > world.arena.maxX - halfW) {
+          transform.x = world.arena.maxX - halfW;
+          velocity.vx = -Math.abs(velocity.vx) * 0.92;
+        }
+      }
+
       if ((role === 'bullet' || role === 'powerBullet') && transform.y > world.arena.maxY + 2) {
-        world.heroHitStreak = 0;
         world.releaseToPool(entity);
         continue;
       }
@@ -89,13 +98,18 @@ export class PhysicsSystem implements System {
           continue;
         }
         const bt = world.transforms.get(bullet);
-        world.releaseToPool(bullet);
+        const powerShot = world.roles.get(bullet) === 'powerBullet';
+        if (!powerShot) {
+          world.releaseToPool(bullet);
+        }
         world.releaseToPool(enemyBullet);
-        this.addHeroCharge(world, 3);
+        this.addPowerProgress(world, powerShot ? 9 : 4);
         if (bt) {
           this.emitImpactBurst(world, bt.x, bt.y, 0xcdf8ff, 6, 5.2);
         }
-        break;
+        if (!powerShot) {
+          break;
+        }
       }
       if (!world.isEntityActive(bullet)) {
         continue;
@@ -105,14 +119,23 @@ export class PhysicsSystem implements System {
           continue;
         }
         const damage = world.roles.get(bullet) === 'powerBullet' ? POWER_BULLET_DAMAGE : BULLET_DAMAGE;
-        world.releaseToPool(bullet);
+        const powerShot = world.roles.get(bullet) === 'powerBullet';
+        if (!powerShot) {
+          world.releaseToPool(bullet);
+        }
         world.applyDamage(obstacle, damage);
-        this.addHeroCharge(world, damage >= POWER_BULLET_DAMAGE ? 8 : 5);
+        this.addPowerProgress(world, damage >= POWER_BULLET_DAMAGE ? 11 : 6);
         if ((world.health.get(obstacle)?.current ?? 1) <= 0) {
           world.feedbackQueue.push({ kind: 'kill', magnitude: 0.18, haptics: [15, 10, 15] });
           world.addScore(20);
+          if (world.roles.get(obstacle) === 'enemyJet') {
+            world.bossExposeMs = Math.max(world.bossExposeMs, 6500);
+            world.addScore(90);
+          }
         }
-        break;
+        if (!powerShot) {
+          break;
+        }
       }
     }
 
@@ -122,13 +145,18 @@ export class PhysicsSystem implements System {
       }
       if (fabricator > 0 && this.intersects(world, bullet, fabricator)) {
         const bulletTransform = world.transforms.get(bullet);
-        const damage = world.roles.get(bullet) === 'powerBullet' ? POWER_FABRICATOR_DAMAGE : FABRICATOR_DAMAGE;
-        world.releaseToPool(bullet);
+        const powerShot = world.roles.get(bullet) === 'powerBullet';
+        const baseDamage = powerShot ? POWER_FABRICATOR_DAMAGE : FABRICATOR_DAMAGE;
+        const exposeMul = world.bossExposeMs > 0 ? 1.7 : 1;
+        const damage = baseDamage * exposeMul;
+        if (!powerShot) {
+          world.releaseToPool(bullet);
+        }
         world.applyDamage(fabricator, damage);
-        this.addHeroCharge(world, damage >= POWER_FABRICATOR_DAMAGE ? 10 : 6);
-        world.addScore(2);
+        this.addPowerProgress(world, powerShot ? 14 : 7);
+        world.addScore(powerShot ? 14 : 2);
         if (bulletTransform) {
-          this.emitImpactBurst(world, bulletTransform.x, bulletTransform.y, 0x95fff2, 8, 6.5);
+          this.emitImpactBurst(world, bulletTransform.x, bulletTransform.y, powerShot ? 0xffdf9d : 0x95fff2, 9, 7.2);
         }
       }
     }
@@ -138,7 +166,7 @@ export class PhysicsSystem implements System {
         continue;
       }
       world.releaseToPool(obstacle);
-      world.applyDamage(tanker, TANKER_COLLISION_DAMAGE);
+      this.applyHeroThreat(world, TANKER_COLLISION_DAMAGE);
       world.feedbackQueue.push({ kind: 'hit', magnitude: 0.35, haptics: [30] });
       const tankerTransform = world.transforms.get(tanker);
       if (tankerTransform) {
@@ -156,7 +184,7 @@ export class PhysicsSystem implements System {
         continue;
       }
       world.releaseToPool(enemyBullet);
-      world.applyDamage(tanker, ENEMY_BULLET_DAMAGE);
+      this.applyHeroThreat(world, ENEMY_BULLET_DAMAGE);
       world.feedbackQueue.push({ kind: 'hit', magnitude: 0.22, haptics: [24] });
       const tankerTransform = world.transforms.get(tanker);
       if (tankerTransform) {
@@ -228,15 +256,42 @@ export class PhysicsSystem implements System {
     }
   }
 
-  private addHeroCharge(world: World, base: number): void {
-    world.heroHitStreak += 1;
-    const streakBoost = Math.min(8, Math.floor(world.heroHitStreak / 4));
-    world.heroCharge = Math.min(100, world.heroCharge + base + streakBoost);
+  private applyHeroThreat(world: World, damage: number): void {
+    if (world.heroShieldMs > 0) {
+      return;
+    }
+    const hp = world.health.get(world.tankerEntity);
+    if (!hp) {
+      return;
+    }
+    if (world.powerLives > 0) {
+      world.powerLives -= 1;
+      world.heroShieldMs = 6200;
+      hp.current = Math.max(hp.current, 32);
+      world.feedbackQueue.push({ kind: 'explosion', magnitude: 0.22, haptics: [28, 14, 28] });
+      return;
+    }
+    world.applyDamage(world.tankerEntity, damage);
+  }
 
-    if (world.heroCharge >= 100 && world.powerShotsRemaining <= 0) {
-      world.heroCharge = 0;
-      world.powerShotsRemaining = world.currentStage >= 5 ? 6 : world.currentStage >= 3 ? 5 : 4;
-      world.feedbackQueue.push({ kind: 'kill', magnitude: 0.12, haptics: [16, 8, 16] });
+  private addPowerProgress(world: World, points: number): void {
+    world.heroPowerPoints += points;
+    let grants = 0;
+    while (world.heroPowerPoints >= world.powerPointThreshold && grants < 8) {
+      world.heroPowerPoints -= world.powerPointThreshold;
+      grants += 1;
+      if (world.powerShotsRemaining < 5) {
+        world.powerShotsRemaining += 1;
+      } else if (world.powerLives < 3) {
+        world.powerLives += 1;
+      } else if (world.powerVanishCharges < 3) {
+        world.powerVanishCharges += 1;
+      } else {
+        world.heroPowerPoints = world.powerPointThreshold;
+        break;
+      }
+      world.powerPointThreshold = Math.min(170, world.powerPointThreshold + 8);
+      world.feedbackQueue.push({ kind: 'kill', magnitude: 0.1, haptics: [10, 8, 10] });
     }
   }
 

@@ -29,13 +29,13 @@ export class MovementSystem implements System {
     }
     velocity.vy = 0;
 
-    // Stage 1 "flight" feel: keep controls horizontal, but add vertical glide motion.
-    if (world.currentStage === 1) {
-      const t = world.timeMs * 0.001;
-      const baseY = world.arena.minY + 1.18;
-      transform.y = baseY + Math.sin(t * 2.25) * 0.18 + Math.sin(t * 0.95) * 0.08;
-    } else {
-      transform.y = world.arena.minY + 1.05;
-    }
+    // Global flight feel across all stages with stronger intensity.
+    const t = world.timeMs * 0.001;
+    const stageBoost = world.currentStage >= 4 ? 1.28 : world.currentStage >= 2 ? 1.12 : 1;
+    const baseY = world.arena.minY + 0.82;
+    transform.y =
+      baseY +
+      Math.sin(t * (2.85 + world.currentStage * 0.08)) * (0.24 * stageBoost) +
+      Math.sin(t * (1.45 + world.currentStage * 0.03)) * (0.11 * stageBoost);
   }
 }

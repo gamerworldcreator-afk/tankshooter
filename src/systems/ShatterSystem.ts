@@ -17,9 +17,9 @@ export class ShatterSystem implements System {
         continue;
       }
 
-      if (role === 'obstacle') {
+      if (role === 'obstacle' || role === 'enemyJet') {
         world.releaseToPool(entity);
-        const chunks = 3 + Math.floor(Math.random() * 3);
+        const chunks = role === 'enemyJet' ? 5 + Math.floor(Math.random() * 3) : 3 + Math.floor(Math.random() * 3);
         for (let i = 0; i < chunks; i += 1) {
           world.queueSpawn({
             key: i % 2 === 0 ? 'debris' : 'subParticle',
@@ -31,7 +31,7 @@ export class ShatterSystem implements System {
             ttlMs: 520 + Math.random() * 400
           });
         }
-        world.feedbackQueue.push({ kind: 'kill', magnitude: 0.08, haptics: [15, 10, 15] });
+        world.feedbackQueue.push({ kind: 'kill', magnitude: role === 'enemyJet' ? 0.16 : 0.08, haptics: [15, 10, 15] });
       }
 
       if (role === 'fabricator') {

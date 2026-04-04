@@ -9,6 +9,7 @@ export class SpawnSystem implements System {
   private powerBulletCooldownMs = 0;
   private obstacleCooldownMs = 0;
   private volleyFlip = false;
+  private vanishPulseMs = 0;
 
   public update(world: World, dt: number): void {
     if (world.tankerEntity < 0) {
@@ -22,6 +23,7 @@ export class SpawnSystem implements System {
     this.bulletCooldownMs -= dt * 1000;
     this.powerBulletCooldownMs -= dt * 1000;
     this.obstacleCooldownMs -= dt * 1000;
+    this.vanishPulseMs = Math.max(0, this.vanishPulseMs - dt * 1000);
 
     if (world.phase === 'playing' && world.input.shootHeld && this.bulletCooldownMs <= 0) {
       this.bulletCooldownMs = 110;
@@ -73,6 +75,15 @@ export class SpawnSystem implements System {
       world.input.powerRequested = false;
     } else if (world.input.powerRequested && world.powerShotsRemaining <= 0) {
       world.input.powerRequested = false;
+    }
+
+    if (world.phase === 'playing' && world.input.vanishRequested) {
+      world.input.vanishRequested = false;
+      if (world.powerVanishCharges > 0 && this.vanishPulseMs <= 0) {
+        world.powerVanishCharges -= 1;
+        this.vanishPulseMs = 700;
+        this.triggerVanish(world);
+      }
     }
 
     const stage = world.currentStage;
@@ -142,6 +153,39 @@ export class SpawnSystem implements System {
       if (command.role === 'subParticle' && command.tint !== undefined && render.mesh instanceof THREE.Mesh) {
         this.tintSubParticle(render.mesh, command.tint);
       }
+    }
+  }
+
+  private triggerVanish(world: World): void {
+    const hazardRoles: Array<'obstacle' | 'enemyBullet'> = ['obstacle', 'enemyBullet'];
+    const purged: Array<{ x: number; y: number }> = [];
+    for (const role of hazardRoles) {
+      for (const entity of world.getEntitiesByRole(role)) {
+        const t = world.transforms.get(entity);
+        if (t) {
+          purged.push({ x: t.x, y: t.y });
+        }
+        world.releaseToPool(entity);
+      }
+    }
+    for (const pos of purged) {
+      for (let i = 0; i < 7; i += 1) {
+        const a = (Math.PI * 2 * i) / 7;
+        world.queueSpawn({
+          key: 'subParticle',
+          role: 'subParticle',
+          x: pos.x,
+          y: pos.y,
+          vx: Math.cos(a) * (4.5 + Math.random() * 3.2),
+          vy: Math.sin(a) * (4.5 + Math.random() * 3.2),
+          ttlMs: 220 + Math.random() * 180,
+          tint: 0x9dfff2
+        });
+      }
+    }
+    if (purged.length > 0) {
+      world.feedbackQueue.push({ kind: 'explosion', magnitude: 0.42, haptics: [26, 18, 26] });
+      world.addScore(purged.length * 6);
     }
   }
 

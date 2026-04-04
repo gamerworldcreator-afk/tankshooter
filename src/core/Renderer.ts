@@ -122,6 +122,17 @@ export class Renderer {
       render.mesh.rotation.set(transform.rotX, transform.rotY, transform.rotZ);
       render.mesh.scale.set(transform.scaleX, transform.scaleY, transform.scaleZ);
       render.mesh.layers.set(render.bloomLayer === BLOOM_LAYER ? BLOOM_LAYER : 0);
+
+      if (entity === this.world.tankerEntity) {
+        const shield = render.mesh.getObjectByName('heroShield');
+        if (shield instanceof THREE.Mesh) {
+          shield.visible = this.world.heroShieldMs > 0;
+          if (shield.material instanceof THREE.MeshBasicMaterial) {
+            const pulse = 0.2 + Math.sin(this.world.timeMs * 0.01) * 0.1;
+            shield.material.opacity = this.world.heroShieldMs > 0 ? pulse : 0;
+          }
+        }
+      }
     }
 
     const { shakeDelta } = gameStore.getState();
@@ -133,45 +144,39 @@ export class Renderer {
     const t = this.world.timeMs * 0.001;
     const cameraX = this.camera.position.x;
     const cameraY = this.camera.position.y;
-    const stage1Flight = this.world.currentStage === 1;
+    const thrill = Math.max(0, Math.sin(t * 0.52 + 1.2));
 
     const stars = this.scene.getObjectByName('bgStars');
     if (stars) {
-      if (stage1Flight) {
-        // Stage 1 has a true vertical travel feel.
-        const loop = 26;
-        const flow = (t * 5.8) % loop;
-        stars.position.y = -13 + flow;
-      } else {
-        stars.position.y = Math.sin(t * 0.42) * 0.8;
-      }
+      const loop = 26;
+      const flow = (t * (6.4 + thrill * 2.1)) % loop;
+      stars.position.y = -13 + flow + Math.sin(t * 0.7) * 0.35;
       stars.position.x = cameraX * -0.08;
-      stars.rotation.z = t * 0.008;
+      stars.rotation.z = t * 0.012;
+      if (stars instanceof THREE.Points && stars.material instanceof THREE.PointsMaterial) {
+        stars.material.opacity = 0.68 + thrill * 0.2;
+      }
     }
 
     const hazeFar = this.scene.getObjectByName('bgHazeFar');
     if (hazeFar) {
-      if (stage1Flight) {
-        const loop = 20;
-        const flow = (t * 1.55) % loop;
-        hazeFar.position.y = -10 + flow + cameraY * -0.02;
-      } else {
-        hazeFar.position.y = Math.cos(t * 0.16) * 0.52 + cameraY * -0.02;
+      const loop = 20;
+      hazeFar.position.x = Math.sin(t * 0.18) * 0.95 + cameraX * -0.04;
+      hazeFar.position.y = -10 + (t * (1.7 + thrill * 0.4)) % loop + cameraY * -0.02;
+      hazeFar.rotation.z = Math.sin(t * 0.11) * 0.075;
+      if (hazeFar instanceof THREE.Mesh && hazeFar.material instanceof THREE.MeshBasicMaterial) {
+        hazeFar.material.opacity = 0.18 + thrill * 0.08;
       }
-      hazeFar.position.x = Math.sin(t * 0.12) * 0.95 + cameraX * -0.04;
-      hazeFar.rotation.z = Math.sin(t * 0.09) * 0.06;
     }
     const haze = this.scene.getObjectByName('bgHaze');
     if (haze) {
       haze.position.x = Math.cos(t * 0.24) * 0.68 + cameraX * -0.08;
-      if (stage1Flight) {
-        const loop = 18;
-        const flow = (t * 2.05) % loop;
-        haze.position.y = -9 + flow + cameraY * -0.04;
-      } else {
-        haze.position.y = Math.sin(t * 0.28) * 0.4 + cameraY * -0.04;
+      const loop = 18;
+      haze.position.y = -9 + (t * (2.3 + thrill * 0.6)) % loop + cameraY * -0.04;
+      haze.rotation.z = Math.cos(t * 0.13) * 0.06;
+      if (haze instanceof THREE.Mesh && haze.material instanceof THREE.MeshBasicMaterial) {
+        haze.material.opacity = 0.22 + thrill * 0.1;
       }
-      haze.rotation.z = Math.cos(t * 0.11) * 0.05;
     }
   }
 

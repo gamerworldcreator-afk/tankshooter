@@ -9,6 +9,7 @@ export class BossEvolutionSystem implements System {
   private bossFireCooldownMs = 0;
   private obstacleDropCooldownMs = 0;
   private supportLaunchCooldownMs = 0;
+  private retreatCycleMs = 7600;
   private readonly supportSlotByEntity = new Map<number, number>();
 
   public update(world: World, dt: number): void {
@@ -21,6 +22,7 @@ export class BossEvolutionSystem implements System {
     boss.stage = world.currentStage;
     boss.shieldActive = world.currentStage >= 2;
     boss.beamFiring = world.currentStage >= 3;
+    this.updateBossRetreatCycle(world, dt);
 
     this.updateBossMovement(world, world.currentStage);
     this.updateShieldVisual(world, boss.shieldActive);
@@ -40,7 +42,13 @@ export class BossEvolutionSystem implements System {
       Math.sin(t * (0.56 + stage * 0.04)) * range * 0.68 +
       Math.sin(t * (1.18 + stage * 0.06) + 1.4) * range * 0.32;
     transform.x = THREE.MathUtils.clamp(pattern, world.arena.minX + 1.2, world.arena.maxX - 1.2);
-    transform.y = world.arena.maxY - 1.25 + Math.sin(t * (0.8 + stage * 0.03)) * (0.22 + stage * 0.03);
+    const activeY = world.arena.maxY - 1.25 + Math.sin(t * (0.8 + stage * 0.03)) * (0.22 + stage * 0.03);
+    if (world.bossRetreatMs > 0 && stage >= 3) {
+      const retreatAlpha = Math.min(1, world.bossRetreatMs / 3200);
+      transform.y = THREE.MathUtils.lerp(activeY, world.arena.maxY + 1.9, retreatAlpha);
+    } else {
+      transform.y = activeY;
+    }
     if (stage < 3) {
       transform.scaleX = 1;
       transform.scaleY = 1;
@@ -123,7 +131,7 @@ export class BossEvolutionSystem implements System {
       return;
     }
 
-    if (!boss.beamFiring || world.phase !== 'playing') {
+    if (!boss.beamFiring || world.phase !== 'playing' || world.bossRetreatMs > 0) {
       beamRender.mesh.visible = false;
       return;
     }
@@ -147,7 +155,7 @@ export class BossEvolutionSystem implements System {
   }
 
   private updateBossFire(world: World, dt: number, stage: 1 | 2 | 3 | 4 | 5): void {
-    if (world.phase !== 'playing' || stage < 3) {
+    if (world.phase !== 'playing' || stage < 3 || world.bossRetreatMs > 0) {
       return;
     }
     this.bossFireCooldownMs -= dt * 1000;
@@ -207,7 +215,7 @@ export class BossEvolutionSystem implements System {
       return;
     }
 
-    const maxSupport = stage === 3 ? 2 : stage === 4 ? 3 : 4;
+    const maxSupport = stage === 3 ? 3 : stage === 4 ? 4 : 5;
     const activeJetSet = new Set(world.getEntitiesByRole('enemyJet'));
     for (const [jet] of this.supportSlotByEntity) {
       if (!activeJetSet.has(jet)) {
@@ -237,7 +245,7 @@ export class BossEvolutionSystem implements System {
           world.obstacleFireCooldownMs.set(jet, 900 + Math.random() * 700);
         }
       }
-      this.supportLaunchCooldownMs = stage === 3 ? 3600 : stage === 4 ? 2600 : 1900;
+      this.supportLaunchCooldownMs = stage === 3 ? 2800 : stage === 4 ? 2200 : 1600;
     }
 
     const aliveJets = world.getEntitiesByRole('enemyJet');
@@ -249,14 +257,58 @@ export class BossEvolutionSystem implements System {
       const slot = this.supportSlotByEntity.get(jet) ?? 0;
       const spread = (slot - (maxSupport - 1) * 0.5) * 1.18;
       const time = world.timeMs * 0.001;
-      const targetX = bossTransform.x + spread + Math.sin(time * 1.15 + slot * 0.7) * 0.24;
-      const targetY = bossTransform.y - 1.9 - Math.abs(spread) * 0.08 + Math.cos(time * 1.7 + slot) * 0.1;
+      const targetX = bossTransform.x + spread + Math.sin(time * 1.35 + slot * 0.7) * 0.6;
+      const targetY = bossTransform.y - 2.1 - Math.abs(spread) * 0.12 + Math.cos(time * 2.2 + slot) * 0.22;
       t.x = THREE.MathUtils.lerp(t.x, targetX, 0.085);
       t.y = THREE.MathUtils.lerp(t.y, targetY, 0.092);
       const scale = 0.88 + Math.sin(time * 2.4 + slot) * 0.05;
       t.scaleX = scale;
       t.scaleY = scale;
       t.scaleZ = scale;
+
+      const render = world.renders.get(jet);
+      const mesh = render?.mesh;
+      if (mesh) {
+        const wingA = mesh.getObjectByName('enemyJetWingA');
+        const wingB = mesh.getObjectByName('enemyJetWingB');
+        if (wingA) {
+          wingA.rotation.z += dt * 8.5;
+        }
+        if (wingB) {
+          wingB.rotation.z -= dt * 8.5;
+        }
+      }
+
+      const cd = (world.obstacleFireCooldownMs.get(jet) ?? 720) - dt * 1000;
+      if (cd <= 0) {
+        world.obstacleFireCooldownMs.set(jet, stage >= 5 ? 330 : stage === 4 ? 430 : 540);
+        world.queueSpawn({
+          key: 'enemyBullet',
+          role: 'enemyBullet',
+          x: t.x,
+          y: t.y - 0.35,
+          vx: Math.sin(time * 2.3 + slot) * 2.8,
+          vy: -7.6
+        });
+      } else {
+        world.obstacleFireCooldownMs.set(jet, cd);
+      }
+    }
+  }
+
+  private updateBossRetreatCycle(world: World, dt: number): void {
+    if (world.currentStage < 3 || world.phase !== 'playing') {
+      this.retreatCycleMs = 7600;
+      return;
+    }
+    if (world.bossRetreatMs > 0) {
+      return;
+    }
+    this.retreatCycleMs -= dt * 1000;
+    if (this.retreatCycleMs <= 0) {
+      world.bossRetreatMs = world.currentStage >= 5 ? 3600 : 3000;
+      world.bossExposeMs = 4500;
+      this.retreatCycleMs = world.currentStage >= 5 ? 6200 : 7600;
     }
   }
 

@@ -84,7 +84,8 @@ export class World {
     useAxisControl: false,
     shootHeld: false,
     pulseRequested: false,
-    powerRequested: false
+    powerRequested: false,
+    vanishRequested: false
   };
 
   public readonly arena = {
@@ -97,9 +98,15 @@ export class World {
   public timeMs = 0;
   public score = 0;
   public unlimitedPowerMode = false;
-  public heroCharge = 0;
+  public heroPowerPoints = 0;
   public heroHitStreak = 0;
+  public powerPointThreshold = 55;
   public powerShotsRemaining = 0;
+  public powerLives = 0;
+  public powerVanishCharges = 0;
+  public heroShieldMs = 0;
+  public bossExposeMs = 0;
+  public bossRetreatMs = 0;
   public phase: 'lobby' | 'countdown' | 'playing' | 'stageClear' | 'defeat' | 'victory' = 'lobby';
   public stageCountdownMs = 0;
   public currentStage: 1 | 2 | 3 | 4 | 5 = 1;
@@ -231,6 +238,9 @@ export class World {
     if (!health || amount <= 0) {
       return;
     }
+    if (entity === this.tankerEntity && this.heroShieldMs > 0) {
+      return;
+    }
     health.current = Math.max(0, health.current - amount);
     if (entity === this.tankerEntity && this.unlimitedPowerMode) {
       return;
@@ -250,6 +260,9 @@ export class World {
 
   public tick(dt: number): void {
     this.timeMs += dt * 1000;
+    this.heroShieldMs = Math.max(0, this.heroShieldMs - dt * 1000);
+    this.bossExposeMs = Math.max(0, this.bossExposeMs - dt * 1000);
+    this.bossRetreatMs = Math.max(0, this.bossRetreatMs - dt * 1000);
     if (this.phase === 'countdown') {
       this.stageCountdownMs = Math.max(0, this.stageCountdownMs - dt * 1000);
       if (this.stageCountdownMs <= 0) {
