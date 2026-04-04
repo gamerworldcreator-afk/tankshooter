@@ -21,7 +21,8 @@ export class BossEvolutionSystem implements System {
 
     boss.stage = world.currentStage;
     boss.shieldActive = world.currentStage >= 2;
-    boss.beamFiring = world.currentStage >= 3;
+    // Beam starts from stage 4 so stage 3 doesn't get unavoidable line-drain behavior.
+    boss.beamFiring = world.currentStage >= 4;
     this.updateBossRetreatCycle(world, dt);
 
     this.updateBossMovement(world, world.currentStage);

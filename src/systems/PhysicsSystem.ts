@@ -280,6 +280,8 @@ export class PhysicsSystem implements System {
     while (world.heroPowerPoints >= world.powerPointThreshold && grants < 8) {
       world.heroPowerPoints -= world.powerPointThreshold;
       grants += 1;
+      // Strict bucket order:
+      // 1) bullets (max 5) -> 2) lives (max 3) -> 3) vanish (max 3)
       if (world.powerShotsRemaining < 5) {
         world.powerShotsRemaining += 1;
       } else if (world.powerLives < 3) {
@@ -290,7 +292,6 @@ export class PhysicsSystem implements System {
         world.heroPowerPoints = world.powerPointThreshold;
         break;
       }
-      world.powerPointThreshold = Math.min(170, world.powerPointThreshold + 8);
       world.feedbackQueue.push({ kind: 'kill', magnitude: 0.1, haptics: [10, 8, 10] });
     }
   }
